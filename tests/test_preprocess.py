@@ -42,3 +42,4 @@ Country of destination: Kyrgyzstan
         self.assertIn("Commercial invoice", cleaned)
         self.assertIn("Invoice Number: INV-001", cleaned)
         self.assertIn("Description: Studio microphone", cleaned)
+

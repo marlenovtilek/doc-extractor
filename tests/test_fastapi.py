@@ -15,6 +15,8 @@ class FastAPISmokeTests(unittest.TestCase):
         mock_execute.return_value = {
             "status": "success",
             "document_code": "04021",
+            "result_type": "table",
+            "data": {"fields": {}, "items": [{"position": 1, "description": "Item"}], "count": 1},
             "model_id": "gpt-oss-120b",
             "items": [{"position": 1, "description": "Item"}],
             "count": 1,
@@ -29,6 +31,7 @@ class FastAPISmokeTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
+        self.assertEqual(response.json()["result_type"], "table")
         self.assertEqual(response.json()["model_id"], "gpt-oss-120b")
 
     def test_extract_returns_400_for_unsupported_document_code(self):
@@ -38,4 +41,4 @@ class FastAPISmokeTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("only handles document_code", response.json()["detail"])
+        self.assertIn("Unsupported document_code", response.json()["detail"])

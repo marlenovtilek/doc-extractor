@@ -1,26 +1,10 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
 
 from extractor.api_service import execute_extraction_request
-from extractor.health import check_database, check_llm_api
-
-
-class ExtractionRequest(BaseModel):
-    document_code: str = Field(..., examples=["04021"])
-    ocr_draft: str
-    model: str | None = None
-
-
-class ExtractionResponse(BaseModel):
-    status: str
-    document_code: str
-    model_id: str
-    items: list[dict[str, Any]]
-    count: int
-    metrics: dict[str, Any]
-    error: str
+from extractor.health import get_health_status
+from extractor.schemas import ExtractionRequest, ExtractionResponse
 
 
 app = FastAPI(
@@ -31,15 +15,8 @@ app = FastAPI(
 
 
 @app.get("/api/health/")
-def health() -> dict[str, Any]:
-    db = check_database()
-    llm = check_llm_api()
-    all_ok = llm["status"] == "ok"
-    return {
-        "status": "ok" if all_ok else "degraded",
-        "database": db,
-        "llm_api": llm,
-    }
+def health() -> dict:
+    return get_health_status()
 
 
 @app.post("/api/extract/", response_model=ExtractionResponse)

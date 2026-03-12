@@ -23,10 +23,6 @@ langvenv/
 !.env.example
 
 # ── Runtime Artifacts ────────────────────────────────────────────────────────
-db.sqlite3
-db.sqlite3-journal
-media/
-staticfiles/
 *.log
 
 # ── IDE / OS ─────────────────────────────────────────────────────────────────

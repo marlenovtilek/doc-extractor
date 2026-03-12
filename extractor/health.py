@@ -1,29 +1,41 @@
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-def check_database() -> dict:
-    """FastAPI mode is stateless; no database health check is needed."""
-    return {"status": "skipped", "detail": "Stateless FastAPI mode"}
-
-
-def check_llm_api() -> dict:
+def _check_llm_api() -> dict:
     """Check that the active primary model's API key is configured."""
-    from .providers import MODEL_PROFILES
+    from .providers import resolve_model_target
     from .runtime import get_runtime_settings
 
     runtime = get_runtime_settings()
-    primary_spec = runtime.llm_model_primary
-    primary_model = MODEL_PROFILES.get(primary_spec, primary_spec)
+    target = resolve_model_target(runtime.llm_model_primary)
 
-    if primary_model.startswith("gpt-oss"):
+    if target.provider == "cerebras":
         key = runtime.cerebras_api_key
         provider = "Cerebras"
-    else:
+        ok = bool(key and len(key) > 10)
+        detail = f"{provider} API key not configured"
+    elif target.provider == "gemini":
         key = runtime.langextract_api_key
         provider = "Gemini"
+        ok = bool(key and len(key) > 10)
+        detail = f"{provider} API key not configured"
+    elif target.provider == "openai":
+        key = runtime.openai_api_key
+        provider = "OpenAI"
+        ok = bool(key and len(key) > 10)
+        detail = f"{provider} API key not configured"
+    else:
+        provider = "Ollama"
+        ok = bool(runtime.ollama_base_url)
+        detail = "Ollama base URL not configured"
 
-    if key and len(key) > 10:
-        return {"status": "ok", "model": primary_model, "provider": provider}
-    return {"status": "error", "detail": f"{provider} API key not configured", "model": primary_model}
+    if ok:
+        return {"status": "ok", "model": target.model_id, "provider": provider}
+    return {"status": "error", "detail": detail, "model": target.model_id, "provider": provider}
+
+
+def get_health_status() -> dict:
+    """Return overall service health for the stateless FastAPI runtime."""
+    llm_api = _check_llm_api()
+    return {
+        "status": "ok" if llm_api["status"] == "ok" else "degraded",
+        "database": {"status": "skipped", "detail": "Stateless FastAPI mode"},
+        "llm_api": llm_api,
+    }

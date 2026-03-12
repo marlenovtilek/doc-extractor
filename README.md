@@ -1,10 +1,10 @@
 # doc-extractor
 
-Stateless FastAPI service for structured invoice extraction.
+Stateless FastAPI service for structured document extraction.
 
 It is designed to sit behind `docai` as a dedicated extraction backend:
 - `docai` keeps upload, OCR, request/task lifecycle, storage, UI
-- `doc-extractor` receives `ocr_draft` and returns structured `items`
+- `doc-extractor` receives `document_code + ocr_draft` and routes to the matching handler
 
 ## What It Does
 
@@ -14,10 +14,12 @@ Pipeline:
 3. Run primary model
 4. Validate / repair JSON
 5. Fallback to secondary model if needed
-6. Normalize, deduplicate, and finalize items
+6. Normalize, deduplicate, and finalize the extracted result
 
-The service currently supports only:
-- `document_code = "04021"`
+Current registered handler:
+- `document_code = "04021"` -> `invoice`
+
+The service is structured for more handlers via `extractor/documents/*` and `extractor/documents/registry.py`.
 
 ## API
 
@@ -60,6 +62,22 @@ Response:
 {
   "status": "success",
   "document_code": "04021",
+  "result_type": "table",
+  "data": {
+    "fields": {},
+    "items": [
+      {
+        "position": 1,
+        "description": "Item",
+        "hs_code": "85181090",
+        "quantity": 1.0,
+        "unit": "pcs",
+        "cost": 10.0,
+        "price": 10.0
+      }
+    ],
+    "count": 1
+  },
   "model_id": "gpt-oss-120b",
   "items": [
     {
@@ -88,8 +106,18 @@ If extraction fails, the endpoint returns `500` with an error detail.
 Aliases:
 - `cerebras` -> `gpt-oss-120b`
 - `gemini` -> `gemini-2.5-flash`
+- `openai` -> `OPENAI_MODEL_DEFAULT`
+- `ollama` -> `OLLAMA_MODEL_DEFAULT`
 
-You can also pass a raw model id.
+You can also pass:
+- a raw model id when the provider can be inferred, for example `gpt-4o-mini`, `gemini-2.5-flash`, `qwen2.5:7b`
+- an explicit provider spec: `provider::model_id`
+
+Examples:
+- `cerebras`
+- `gemini`
+- `openai::gpt-4o-mini`
+- `ollama::mistral:7b`
 
 ## Local Run
 
@@ -119,6 +147,14 @@ Required provider keys depend on the model you use.
 Main variables:
 - `LLM_MODEL_PRIMARY`
 - `LLM_MODEL_FALLBACK`
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_ORGANIZATION`
+- `OPENAI_MODEL_DEFAULT`
+- `OLLAMA_BASE_URL`
+- `OLLAMA_API_KEY`
+- `OLLAMA_MODEL_DEFAULT`
+- `OLLAMA_TIMEOUT_S`
 - `CEREBRAS_BASE_URL`
 - `CEREBRAS_API_KEY`
 - `LANGEXTRACT_API_KEY`
@@ -128,20 +164,21 @@ Main variables:
 - `CEREBRAS_RETRY_BASE_DELAY_S`
 - `LLM_MAX_CHAR_BUFFER`
 - `LLM_MAX_WORKERS_GEMINI`
+- `LLM_MAX_WORKERS_OPENAI`
 - `CURRENCY_DB_JSON`
 
 ## Tests
 
 ```bash
-python -m unittest discover -s extractor -p 'tests*.py'
+python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 ## Integration With docai
 
 Recommended `docai` integration point:
-- replace current Dify extraction call inside `task_field_extraction.py`
+- replace the current extraction branch with a call to this service
 - keep OCR, request/task state, and result storage in `docai`
-- call this service with:
+- branch in `docai` by `document_code`, then call this service with:
 
 ```json
 {
@@ -151,4 +188,4 @@ Recommended `docai` integration point:
 }
 ```
 
-And map returned `items` directly into `docai`'s existing save step.
+For table-style documents, map returned `data.items` or top-level `items` into `docai`'s save step.

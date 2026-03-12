@@ -118,3 +118,4 @@ Currency: USD
         deduped = deduplicate_items(items)
 
         self.assertEqual(len(deduped), 2)
+

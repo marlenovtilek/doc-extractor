@@ -1,14 +1,33 @@
-from .constants import DOCUMENT_CODE_04021
-from .pipeline import run_invoice_extraction
+from typing import Any
+
+from .documents.registry import get_document_handler
 
 
-def validate_document_code(document_code: str) -> str:
-    if document_code != DOCUMENT_CODE_04021:
-        raise ValueError(
-            f"This service only handles document_code '{DOCUMENT_CODE_04021}'. "
-            f"Got '{document_code}'."
-        )
-    return document_code
+def _build_response(
+    *,
+    status: str,
+    document_code: str,
+    result_type: str,
+    data: dict[str, Any],
+    model_id: str,
+    metrics: dict,
+    error: str,
+) -> dict:
+    items = data.get("items", [])
+    if not isinstance(items, list):
+        items = []
+    count = data.get("count", len(items))
+    return {
+        "status": status,
+        "document_code": document_code,
+        "result_type": result_type,
+        "data": data,
+        "model_id": model_id,
+        "items": items,
+        "count": count,
+        "metrics": metrics,
+        "error": error,
+    }
 
 
 def execute_extraction_request(
@@ -17,30 +36,30 @@ def execute_extraction_request(
     ocr_draft: str,
     model: str | None = None,
 ) -> dict:
-    validate_document_code(document_code)
-    output = run_invoice_extraction(ocr_draft, model_id=model or None)
+    handler = get_document_handler(document_code)
+    output = handler.extract(ocr_draft=ocr_draft, model=model)
 
     metrics = output.get("metrics", {})
     model_id_used = output.get("model_id", "")
+    result_type = output.get("result_type", getattr(handler, "result_type", "object"))
+    data = output.get("data", {})
     if "error" in output:
-        return {
-            "status": "failed",
-            "document_code": document_code,
-            "model_id": model_id_used,
-            "items": [],
-            "count": 0,
-            "metrics": metrics,
-            "error": output["error"],
-        }
+        return _build_response(
+            status="failed",
+            document_code=document_code,
+            result_type=result_type,
+            data=data,
+            model_id=model_id_used,
+            metrics=metrics,
+            error=output["error"],
+        )
 
-    result = output.get("result", {})
-    items = result.get("items", [])
-    return {
-        "status": "success",
-        "document_code": document_code,
-        "model_id": model_id_used,
-        "items": items,
-        "count": len(items),
-        "metrics": metrics,
-        "error": "",
-    }
+    return _build_response(
+        status="success",
+        document_code=document_code,
+        result_type=result_type,
+        data=data,
+        model_id=model_id_used,
+        metrics=metrics,
+        error="",
+    )

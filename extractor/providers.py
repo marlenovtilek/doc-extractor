@@ -1,12 +1,15 @@
 """Model routing and provider-specific extraction backends."""
 
 import concurrent.futures
+from dataclasses import dataclass
 import json
 import logging
+import re
 import time
 
 import langextract as lx
 from langextract import factory as lx_factory
+from langextract.providers import patterns as lx_patterns
 
 from .postprocess import _repair_json
 from .prompts import (
@@ -23,9 +26,18 @@ logger = logging.getLogger(__name__)
 MODEL_PROFILES: dict[str, str] = {
     "cerebras": "gpt-oss-120b",
     "gemini": "gemini-2.5-flash",
+    "openai": "gpt-4o-mini",
+    "ollama": "qwen2.5:7b",
 }
 
 _cerebras_client = None
+_SUPPORTED_PROVIDERS = {"cerebras", "gemini", "openai", "ollama"}
+
+
+@dataclass(frozen=True)
+class ModelTarget:
+    provider: str
+    model_id: str
 
 
 def _extract_cerebras_usage(resp) -> dict[str, int]:
@@ -107,38 +119,105 @@ def _is_non_retryable_cerebras_error(exc: Exception) -> bool:
     )
 
 
-def resolve_model_id(model_spec: str | None) -> str:
-    """
-    Resolve a model spec to a concrete model ID.
-    """
-    if not model_spec:
-        primary = get_runtime_settings().llm_model_primary
-        return MODEL_PROFILES.get(primary, primary)
-    return MODEL_PROFILES.get(model_spec, model_spec)
+def _matches_any_pattern(value: str, patterns: tuple[str, ...]) -> bool:
+    return any(re.search(pattern, value) for pattern in patterns)
 
 
-def _build_lx_config(model_id: str) -> lx_factory.ModelConfig:
-    """
-    Build a LangExtract ModelConfig for Cerebras or Gemini.
+def _default_model_targets() -> dict[str, ModelTarget]:
+    runtime = get_runtime_settings()
+    return {
+        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
+        "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
+        "openai": ModelTarget(provider="openai", model_id=runtime.openai_model_default),
+        "ollama": ModelTarget(provider="ollama", model_id=runtime.ollama_model_default),
+    }
+
+
+def resolve_model_target(model_spec: str | None) -> ModelTarget:
+    """Resolve an alias or explicit spec into a provider + model target.
+
+    Supported forms:
+    - alias: `cerebras`, `gemini`, `openai`, `ollama`
+    - explicit: `provider::model_id`
+    - raw model ids inferred by provider patterns for Gemini/OpenAI/Ollama
     """
     runtime = get_runtime_settings()
-    if model_id.startswith("gpt-oss"):
+    raw = (model_spec or runtime.llm_model_primary or "").strip()
+    if not raw:
+        raise ValueError("Model spec is empty.")
+
+    aliases = _default_model_targets()
+    if raw in aliases:
+        return aliases[raw]
+
+    if "::" in raw:
+        provider, model_id = raw.split("::", 1)
+        provider = provider.strip().lower()
+        model_id = model_id.strip()
+        if provider not in _SUPPORTED_PROVIDERS:
+            supported = ", ".join(sorted(_SUPPORTED_PROVIDERS))
+            raise ValueError(f"Unsupported provider '{provider}'. Use one of: {supported}.")
+        if not model_id:
+            raise ValueError("Explicit provider syntax requires a model id: 'provider::model_id'.")
+        return ModelTarget(provider=provider, model_id=model_id)
+
+    if raw.startswith("gpt-oss"):
+        return ModelTarget(provider="cerebras", model_id=raw)
+    if _matches_any_pattern(raw, lx_patterns.GEMINI_PATTERNS):
+        return ModelTarget(provider="gemini", model_id=raw)
+    if _matches_any_pattern(raw, lx_patterns.OPENAI_PATTERNS):
+        return ModelTarget(provider="openai", model_id=raw)
+    if _matches_any_pattern(raw, lx_patterns.OLLAMA_PATTERNS):
+        return ModelTarget(provider="ollama", model_id=raw)
+
+    raise ValueError(
+        "Unsupported model spec. Use an alias (`cerebras`, `gemini`, `openai`, `ollama`) "
+        "or the explicit form `provider::model_id`."
+    )
+
+
+def resolve_model_id(model_spec: str | None) -> str:
+    """Resolve a model spec to the concrete model ID only."""
+    return resolve_model_target(model_spec).model_id
+
+
+def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
+    """Build a LangExtract ModelConfig for supported LangExtract providers."""
+    runtime = get_runtime_settings()
+    if target.provider == "gemini":
         return lx_factory.ModelConfig(
-            model_id=model_id,
+            model_id=target.model_id,
+            provider="gemini",
             provider_kwargs={
-                "base_url": runtime.cerebras_base_url,
-                "api_key": runtime.cerebras_api_key or None,
-                "max_workers": runtime.llm_max_workers_cerebras,
+                "api_key": runtime.langextract_api_key or None,
+                "max_workers": runtime.llm_max_workers_gemini,
             },
         )
 
-    return lx_factory.ModelConfig(
-        model_id=model_id,
-        provider_kwargs={
-            "api_key": runtime.langextract_api_key or None,
-            "max_workers": runtime.llm_max_workers_gemini,
-        },
-    )
+    if target.provider == "openai":
+        return lx_factory.ModelConfig(
+            model_id=target.model_id,
+            provider="openai",
+            provider_kwargs={
+                "api_key": runtime.openai_api_key or None,
+                "base_url": runtime.openai_base_url or None,
+                "organization": runtime.openai_organization or None,
+                "max_workers": runtime.llm_max_workers_openai,
+            },
+        )
+
+    if target.provider == "ollama":
+        return lx_factory.ModelConfig(
+            model_id=target.model_id,
+            provider="ollama",
+            provider_kwargs={
+                "base_url": runtime.ollama_base_url,
+                "api_key": runtime.ollama_api_key or None,
+                "timeout": runtime.ollama_timeout_s,
+            },
+        )
+
+    raise ValueError(f"LangExtract config is not supported for provider '{target.provider}'.")
 
 
 def _split_text_into_chunks(text: str, max_chars: int) -> list[str]:
@@ -302,16 +381,17 @@ def extract_cerebras_direct(
 
 def extract_with_langextract_optimized(
     context_text: str,
-    model_id: str,
+    model: str | ModelTarget,
     header_context: str = "",
 ) -> tuple[str, object, dict[str, int]]:
     """
     Run extraction and return (json_str, annotated_doc).
     """
-    if model_id.startswith("gpt-oss"):
-        return extract_cerebras_direct(context_text, model_id, header_context)
+    target = model if isinstance(model, ModelTarget) else resolve_model_target(model)
+    if target.provider == "cerebras":
+        return extract_cerebras_direct(context_text, target.model_id, header_context)
 
-    config = _build_lx_config(model_id)
+    config = _build_lx_config(target)
     prompt = EXTRACTION_PROMPT
     buffer = get_runtime_settings().llm_max_char_buffer
 
@@ -342,7 +422,7 @@ def extract_with_langextract_optimized(
 
     logger.debug(
         "[raw_output] model=%s  extracted=%d items  preview=%s",
-        model_id,
+        target.model_id,
         len(all_items),
         json.dumps(all_items[:3], ensure_ascii=False)[:500],
     )
