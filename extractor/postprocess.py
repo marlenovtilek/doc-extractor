@@ -399,6 +399,30 @@ def deduplicate_items(items: list[dict]) -> list[dict]:
     return result
 
 
+def sort_items_by_position(items: list[dict]) -> list[dict]:
+    """
+    Sort extracted rows by numeric position while preserving relative order for
+    rows that share the same position or do not have a valid numeric position.
+    """
+    if not items:
+        return items
+
+    indexed_items = list(enumerate(items))
+
+    def _sort_key(entry: tuple[int, dict]) -> tuple[int, int, int]:
+        original_idx, item = entry
+        raw_pos = item.get("position")
+        try:
+            pos = int(raw_pos) if raw_pos is not None else None
+        except (TypeError, ValueError):
+            pos = None
+        if pos is None:
+            return (1, 0, original_idx)
+        return (0, pos, original_idx)
+
+    return [item for _, item in sorted(indexed_items, key=_sort_key)]
+
+
 def validate_and_parse(text: str) -> dict:
     """
     Parse and normalize JSON returned after chunked extraction.

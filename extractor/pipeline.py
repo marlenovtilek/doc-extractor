@@ -9,6 +9,7 @@ from .postprocess import (
     extract_structured_pipe_items,
     filter_ocr_anomalies,
     post_fill_from_header,
+    sort_items_by_position,
     spread_single_country_origin,
     validate_and_parse,
 )
@@ -72,7 +73,7 @@ def _normalize_items(items: list[dict], header_meta: dict, currency_db: list[dic
     normalized = spread_single_country_origin(normalized)
     normalized = finalize_items(normalized, currency_db)
     normalized = filter_ocr_anomalies(normalized)
-    return deduplicate_items(normalized)
+    return sort_items_by_position(deduplicate_items(normalized))
 
 
 def _recover_with_structured_items(
@@ -94,8 +95,8 @@ def _recover_with_structured_items(
     positioned_llm_items = [item for item in llm_items if item.get("position") is not None]
     merged_items = deduplicate_items(positioned_llm_items + structured_final_items)
     if len(merged_items) >= len(structured_final_items):
-        return merged_items
-    return structured_final_items
+        return sort_items_by_position(merged_items)
+    return sort_items_by_position(structured_final_items)
 
 
 def run_invoice_extraction(ocr_draft: str, model_id: str | None = None) -> dict:

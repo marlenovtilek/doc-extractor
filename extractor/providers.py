@@ -22,14 +22,6 @@ from .runtime import get_runtime_settings
 
 logger = logging.getLogger(__name__)
 
-
-MODEL_PROFILES: dict[str, str] = {
-    "cerebras": "gpt-oss-120b",
-    "gemini": "gemini-2.5-flash",
-    "openai": "gpt-4o-mini",
-    "ollama": "qwen2.5:7b",
-}
-
 _cerebras_client = None
 _SUPPORTED_PROVIDERS = {"cerebras", "gemini", "openai", "ollama"}
 
@@ -38,6 +30,133 @@ _SUPPORTED_PROVIDERS = {"cerebras", "gemini", "openai", "ollama"}
 class ModelTarget:
     provider: str
     model_id: str
+
+
+def _provider_display_name(provider: str) -> str:
+    names = {
+        "cerebras": "Cerebras",
+        "gemini": "Gemini",
+        "openai": "OpenAI",
+        "ollama": "Ollama",
+    }
+    return names.get(provider, provider.title())
+
+
+def _provider_default_targets() -> dict[str, ModelTarget]:
+    runtime = get_runtime_settings()
+    return {
+        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
+        "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
+        "openai": ModelTarget(provider="openai", model_id=runtime.openai_model_default),
+        "ollama": ModelTarget(provider="ollama", model_id=runtime.ollama_model_default),
+    }
+
+
+def _alias_model_targets() -> dict[str, ModelTarget]:
+    runtime = get_runtime_settings()
+    return {
+        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
+        "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
+        "gemini-flash": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
+        "gemini-pro": ModelTarget(provider="gemini", model_id="gemini-2.5-pro"),
+        "openai": ModelTarget(provider="openai", model_id=runtime.openai_model_default),
+        "ollama": ModelTarget(provider="ollama", model_id=runtime.ollama_model_default),
+    }
+
+
+def _visible_model_aliases() -> tuple[str, ...]:
+    return ("cerebras", "gemini-flash", "gemini-pro", "openai", "ollama")
+
+
+def get_provider_statuses() -> dict[str, dict[str, object]]:
+    """
+    Return configuration-level readiness for each supported provider.
+
+    This is intentionally a config check, not a live connectivity probe.
+    """
+    runtime = get_runtime_settings()
+    statuses: dict[str, dict[str, object]] = {}
+
+    for provider, target in _provider_default_targets().items():
+        if provider == "cerebras":
+            configured = bool(runtime.cerebras_api_key and len(runtime.cerebras_api_key) > 10)
+            detail = "" if configured else "Set CEREBRAS_API_KEY in .env"
+            kind = "hosted"
+        elif provider == "gemini":
+            configured = bool(runtime.langextract_api_key and len(runtime.langextract_api_key) > 10)
+            detail = "" if configured else "Set LANGEXTRACT_API_KEY in .env"
+            kind = "hosted"
+        elif provider == "openai":
+            configured = bool(runtime.openai_api_key and len(runtime.openai_api_key) > 10)
+            detail = "" if configured else "Set OPENAI_API_KEY in .env"
+            kind = "hosted"
+        else:
+            configured = bool(runtime.ollama_base_url)
+            detail = "" if configured else "Set OLLAMA_BASE_URL in .env"
+            kind = "local"
+
+        statuses[provider] = {
+            "provider": provider,
+            "label": _provider_display_name(provider),
+            "configured": configured,
+            "status": "ready" if configured else "missing_config",
+            "detail": detail,
+            "kind": kind,
+            "default_model_id": target.model_id,
+        }
+
+    return statuses
+
+
+def list_model_profiles() -> list[dict[str, object]]:
+    """Return model aliases enriched with provider readiness metadata."""
+    statuses = get_provider_statuses()
+    profiles: list[dict[str, object]] = []
+    alias_targets = _alias_model_targets()
+    for alias in _visible_model_aliases():
+        target = alias_targets[alias]
+        provider_status = statuses[target.provider]
+        profiles.append(
+            {
+                "alias": alias,
+                "provider": target.provider,
+                "provider_label": provider_status["label"],
+                "model_id": target.model_id,
+                "configured": provider_status["configured"],
+                "status": provider_status["status"],
+                "detail": provider_status["detail"],
+                "kind": provider_status["kind"],
+            }
+        )
+    return profiles
+
+
+def list_model_families() -> list[dict[str, object]]:
+    """Return grouped model choices for two-step UI selection."""
+    statuses = get_provider_statuses()
+    profiles = list_model_profiles()
+    grouped: dict[str, list[dict[str, object]]] = {provider: [] for provider in _SUPPORTED_PROVIDERS}
+    for profile in profiles:
+        grouped[profile["provider"]].append(profile)
+
+    ordered_providers = ("cerebras", "gemini", "openai", "ollama")
+    families: list[dict[str, object]] = []
+    for provider in ordered_providers:
+        provider_status = statuses[provider]
+        models = grouped.get(provider, [])
+        families.append(
+            {
+                "provider": provider,
+                "label": provider_status["label"],
+                "configured": provider_status["configured"],
+                "status": provider_status["status"],
+                "detail": provider_status["detail"],
+                "kind": provider_status["kind"],
+                "default_model_id": provider_status["default_model_id"],
+                "models": models,
+            }
+        )
+    return families
 
 
 def _extract_cerebras_usage(resp) -> dict[str, int]:
@@ -123,16 +242,6 @@ def _matches_any_pattern(value: str, patterns: tuple[str, ...]) -> bool:
     return any(re.search(pattern, value) for pattern in patterns)
 
 
-def _default_model_targets() -> dict[str, ModelTarget]:
-    runtime = get_runtime_settings()
-    return {
-        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
-        "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
-        "openai": ModelTarget(provider="openai", model_id=runtime.openai_model_default),
-        "ollama": ModelTarget(provider="ollama", model_id=runtime.ollama_model_default),
-    }
-
-
 def resolve_model_target(model_spec: str | None) -> ModelTarget:
     """Resolve an alias or explicit spec into a provider + model target.
 
@@ -146,7 +255,7 @@ def resolve_model_target(model_spec: str | None) -> ModelTarget:
     if not raw:
         raise ValueError("Model spec is empty.")
 
-    aliases = _default_model_targets()
+    aliases = _alias_model_targets()
     if raw in aliases:
         return aliases[raw]
 
@@ -171,14 +280,60 @@ def resolve_model_target(model_spec: str | None) -> ModelTarget:
         return ModelTarget(provider="ollama", model_id=raw)
 
     raise ValueError(
-        "Unsupported model spec. Use an alias (`cerebras`, `gemini`, `openai`, `ollama`) "
-        "or the explicit form `provider::model_id`."
+        "Unsupported model spec. Use an alias (`cerebras`, `gemini`, `gemini-flash`, "
+        "`gemini-pro`, `openai`, `ollama`) or the explicit form `provider::model_id`."
     )
+
+
+def get_display_model_alias(model_spec: str | None) -> str:
+    """Normalize a model spec to the closest UI-visible alias when possible."""
+    raw = (model_spec or "").strip()
+    if not raw:
+        return ""
+
+    try:
+        target = resolve_model_target(raw)
+    except ValueError:
+        return raw
+
+    alias_targets = _alias_model_targets()
+    for alias in _visible_model_aliases():
+        if alias_targets[alias] == target:
+            return alias
+    return raw
+
+
+def get_display_model_family(model_spec: str | None) -> str:
+    """Normalize a model spec to the provider family used in the UI."""
+    raw = (model_spec or "").strip()
+    if not raw:
+        return ""
+    try:
+        return resolve_model_target(raw).provider
+    except ValueError:
+        return ""
 
 
 def resolve_model_id(model_spec: str | None) -> str:
     """Resolve a model spec to the concrete model ID only."""
     return resolve_model_target(model_spec).model_id
+
+
+def ensure_model_target_ready(target: ModelTarget) -> None:
+    """Raise ValueError when a provider is selected but not configured."""
+    status = get_provider_statuses()[target.provider]
+    if status["configured"]:
+        return
+    label = status["label"]
+    detail = status["detail"]
+    raise ValueError(f"{label} is not configured. {detail}")
+
+
+def ensure_model_spec_ready(model_spec: str | None) -> ModelTarget:
+    """Resolve and validate a model spec before extraction."""
+    target = resolve_model_target(model_spec)
+    ensure_model_target_ready(target)
+    return target
 
 
 def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
@@ -187,7 +342,6 @@ def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
     if target.provider == "gemini":
         return lx_factory.ModelConfig(
             model_id=target.model_id,
-            provider="gemini",
             provider_kwargs={
                 "api_key": runtime.langextract_api_key or None,
                 "max_workers": runtime.llm_max_workers_gemini,
@@ -197,7 +351,6 @@ def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
     if target.provider == "openai":
         return lx_factory.ModelConfig(
             model_id=target.model_id,
-            provider="openai",
             provider_kwargs={
                 "api_key": runtime.openai_api_key or None,
                 "base_url": runtime.openai_base_url or None,
@@ -209,7 +362,6 @@ def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
     if target.provider == "ollama":
         return lx_factory.ModelConfig(
             model_id=target.model_id,
-            provider="ollama",
             provider_kwargs={
                 "base_url": runtime.ollama_base_url,
                 "api_key": runtime.ollama_api_key or None,

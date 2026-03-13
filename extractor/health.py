@@ -1,41 +1,33 @@
-def _check_llm_api() -> dict:
-    """Check that the active primary model's API key is configured."""
-    from .providers import resolve_model_target
-    from .runtime import get_runtime_settings
-
-    runtime = get_runtime_settings()
-    target = resolve_model_target(runtime.llm_model_primary)
-
-    if target.provider == "cerebras":
-        key = runtime.cerebras_api_key
-        provider = "Cerebras"
-        ok = bool(key and len(key) > 10)
-        detail = f"{provider} API key not configured"
-    elif target.provider == "gemini":
-        key = runtime.langextract_api_key
-        provider = "Gemini"
-        ok = bool(key and len(key) > 10)
-        detail = f"{provider} API key not configured"
-    elif target.provider == "openai":
-        key = runtime.openai_api_key
-        provider = "OpenAI"
-        ok = bool(key and len(key) > 10)
-        detail = f"{provider} API key not configured"
-    else:
-        provider = "Ollama"
-        ok = bool(runtime.ollama_base_url)
-        detail = "Ollama base URL not configured"
-
-    if ok:
-        return {"status": "ok", "model": target.model_id, "provider": provider}
-    return {"status": "error", "detail": detail, "model": target.model_id, "provider": provider}
+from .providers import get_provider_statuses, resolve_model_target
+from .runtime import get_runtime_settings
 
 
 def get_health_status() -> dict:
-    """Return overall service health for the stateless FastAPI runtime."""
-    llm_api = _check_llm_api()
+    """Return overall service health and provider readiness."""
+    runtime = get_runtime_settings()
+    provider_statuses = get_provider_statuses()
+    try:
+        active_target = resolve_model_target(runtime.llm_model_primary)
+        active_provider = provider_statuses[active_target.provider]
+
+        llm_api = {
+            "status": "ok" if active_provider["configured"] else "error",
+            "provider": active_provider["label"],
+            "model": active_target.model_id,
+        }
+        if not active_provider["configured"]:
+            llm_api["detail"] = active_provider["detail"]
+    except ValueError as exc:
+        llm_api = {
+            "status": "error",
+            "provider": "unknown",
+            "model": runtime.llm_model_primary,
+            "detail": str(exc),
+        }
+
     return {
         "status": "ok" if llm_api["status"] == "ok" else "degraded",
         "database": {"status": "skipped", "detail": "Stateless FastAPI mode"},
         "llm_api": llm_api,
+        "providers": provider_statuses,
     }

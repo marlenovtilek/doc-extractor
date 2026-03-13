@@ -106,6 +106,8 @@ If extraction fails, the endpoint returns `500` with an error detail.
 Aliases:
 - `cerebras` -> `gpt-oss-120b`
 - `gemini` -> `gemini-2.5-flash`
+- `gemini-flash` -> `gemini-2.5-flash`
+- `gemini-pro` -> `gemini-2.5-pro`
 - `openai` -> `OPENAI_MODEL_DEFAULT`
 - `ollama` -> `OLLAMA_MODEL_DEFAULT`
 
@@ -116,6 +118,9 @@ You can also pass:
 Examples:
 - `cerebras`
 - `gemini`
+- `gemini-flash`
+- `gemini-pro`
+- `gemini::gemini-2.5-pro`
 - `openai::gpt-4o-mini`
 - `ollama::mistral:7b`
 

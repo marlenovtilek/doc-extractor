@@ -24,6 +24,7 @@ def _env_float(name: str, default: float) -> float:
 
 @dataclass(frozen=True)
 class RuntimeSettings:
+    doc_extractor_api_token: str
     langextract_api_key: str
     llm_model_primary: str
     llm_model_fallback: str
@@ -50,6 +51,7 @@ class RuntimeSettings:
 @lru_cache(maxsize=1)
 def get_runtime_settings() -> RuntimeSettings:
     return RuntimeSettings(
+        doc_extractor_api_token=os.getenv("DOC_EXTRACTOR_API_TOKEN", ""),
         langextract_api_key=os.getenv("LANGEXTRACT_API_KEY", ""),
         llm_model_primary=os.getenv("LLM_MODEL_PRIMARY", "cerebras"),
         llm_model_fallback=os.getenv("LLM_MODEL_FALLBACK", "gemini"),

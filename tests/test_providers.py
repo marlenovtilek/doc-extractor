@@ -8,6 +8,10 @@ from extractor.providers import (
     _is_non_retryable_cerebras_error,
     _is_retryable_cerebras_error,
     _build_lx_config,
+    ensure_model_spec_ready,
+    get_display_model_alias,
+    get_provider_statuses,
+    list_model_profiles,
     resolve_model_target,
 )
 from extractor.runtime import clear_runtime_settings_cache
@@ -83,6 +87,13 @@ class CerebrasRetryPolicyTests(unittest.TestCase):
         self.assertEqual(resolve_model_target("qwen2.5:7b").provider, "ollama")
         self.assertEqual(resolve_model_target("gpt-oss-120b").provider, "cerebras")
 
+    def test_resolve_model_target_supports_explicit_gemini_aliases(self):
+        flash_target = resolve_model_target("gemini-flash")
+        pro_target = resolve_model_target("gemini-pro")
+
+        self.assertEqual((flash_target.provider, flash_target.model_id), ("gemini", "gemini-2.5-flash"))
+        self.assertEqual((pro_target.provider, pro_target.model_id), ("gemini", "gemini-2.5-pro"))
+
     @patch.dict(
         os.environ,
         {
@@ -99,12 +110,77 @@ class CerebrasRetryPolicyTests(unittest.TestCase):
         openai_config = _build_lx_config(resolve_model_target("openai::gpt-4o-mini"))
         ollama_config = _build_lx_config(resolve_model_target("ollama::qwen2.5:7b"))
 
-        self.assertEqual(openai_config.provider, "openai")
+        self.assertIsNone(openai_config.provider)
         self.assertEqual(openai_config.model_id, "gpt-4o-mini")
         self.assertEqual(openai_config.provider_kwargs["api_key"], "sk-openai-test")
         self.assertEqual(openai_config.provider_kwargs["base_url"], "https://api.openai.com/v1")
 
-        self.assertEqual(ollama_config.provider, "ollama")
+        self.assertIsNone(ollama_config.provider)
         self.assertEqual(ollama_config.model_id, "qwen2.5:7b")
         self.assertEqual(ollama_config.provider_kwargs["base_url"], "http://localhost:11434")
         self.assertEqual(ollama_config.provider_kwargs["timeout"], 180)
+
+    def test_build_lx_config_uses_model_id_resolution_for_gemini(self):
+        clear_runtime_settings_cache()
+
+        gemini_config = _build_lx_config(resolve_model_target("gemini"))
+
+        self.assertIsNone(gemini_config.provider)
+        self.assertEqual(gemini_config.model_id, "gemini-2.5-flash")
+
+    @patch.dict(
+        os.environ,
+        {
+            "CEREBRAS_API_KEY": "csk_test_1234567890",
+            "LANGEXTRACT_API_KEY": "AIzaSyGeminiTest123456",
+            "OPENAI_API_KEY": "",
+            "OLLAMA_BASE_URL": "http://localhost:11434",
+        },
+        clear=False,
+    )
+    def test_get_provider_statuses_marks_configured_and_missing(self):
+        clear_runtime_settings_cache()
+
+        statuses = get_provider_statuses()
+
+        self.assertTrue(statuses["cerebras"]["configured"])
+        self.assertTrue(statuses["gemini"]["configured"])
+        self.assertFalse(statuses["openai"]["configured"])
+        self.assertTrue(statuses["ollama"]["configured"])
+        self.assertEqual(statuses["openai"]["status"], "missing_config")
+
+    @patch.dict(
+        os.environ,
+        {
+            "OPENAI_API_KEY": "",
+        },
+        clear=False,
+    )
+    def test_ensure_model_spec_ready_rejects_unconfigured_provider(self):
+        clear_runtime_settings_cache()
+
+        with self.assertRaisesRegex(ValueError, "OpenAI is not configured"):
+            ensure_model_spec_ready("openai")
+
+    @patch.dict(
+        os.environ,
+        {
+            "OPENAI_API_KEY": "sk-openai-test",
+        },
+        clear=False,
+    )
+    def test_list_model_profiles_includes_provider_readiness(self):
+        clear_runtime_settings_cache()
+
+        profiles = list_model_profiles()
+        openai = next(item for item in profiles if item["alias"] == "openai")
+        gemini_pro = next(item for item in profiles if item["alias"] == "gemini-pro")
+
+        self.assertEqual(openai["provider"], "openai")
+        self.assertTrue(openai["configured"])
+        self.assertIn("kind", openai)
+        self.assertEqual(gemini_pro["model_id"], "gemini-2.5-pro")
+
+    def test_get_display_model_alias_maps_generic_gemini_to_flash(self):
+        self.assertEqual(get_display_model_alias("gemini"), "gemini-flash")
+        self.assertEqual(get_display_model_alias("gemini::gemini-2.5-pro"), "gemini-pro")

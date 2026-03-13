@@ -13,6 +13,7 @@ class ExtractionResponse(BaseModel):
     status: str
     document_code: str
     result_type: str
+    document_schema: dict[str, Any]
     data: dict[str, Any]
     model_id: str
     items: list[dict[str, Any]]

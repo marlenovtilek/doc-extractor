@@ -1,6 +1,11 @@
 import unittest
 
-from extractor.postprocess import deduplicate_items, extract_structured_pipe_items, filter_ocr_anomalies
+from extractor.postprocess import (
+    deduplicate_items,
+    extract_structured_pipe_items,
+    filter_ocr_anomalies,
+    sort_items_by_position,
+)
 
 
 class StructuredPipeExtractionTests(unittest.TestCase):
@@ -119,3 +124,19 @@ Currency: USD
 
         self.assertEqual(len(deduped), 2)
 
+    def test_sort_items_by_position_orders_numeric_positions(self):
+        items = [
+            {"position": 6, "description": "six"},
+            {"position": 8, "description": "eight"},
+            {"position": 16, "description": "sixteen"},
+            {"position": 15, "description": "fifteen"},
+            {"position": 14, "description": "fourteen"},
+            {"position": 13, "description": "thirteen"},
+        ]
+
+        sorted_items = sort_items_by_position(items)
+
+        self.assertEqual(
+            [item["position"] for item in sorted_items],
+            [6, 8, 13, 14, 15, 16],
+        )
