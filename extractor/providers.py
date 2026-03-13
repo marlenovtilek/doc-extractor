@@ -2,6 +2,7 @@
 
 import concurrent.futures
 from dataclasses import dataclass
+from importlib import import_module
 import json
 import logging
 import re
@@ -11,13 +12,6 @@ import langextract as lx
 from langextract import factory as lx_factory
 from langextract.providers import patterns as lx_patterns
 
-from .postprocess import _repair_json
-from .prompts import (
-    EXAMPLES,
-    EXTRACTION_PROMPT,
-    EXTRACTION_PROMPT_GPT_OSS,
-    _CEREBRAS_RESPONSE_FORMAT,
-)
 from .runtime import get_runtime_settings
 
 logger = logging.getLogger(__name__)
@@ -30,6 +24,24 @@ _SUPPORTED_PROVIDERS = {"cerebras", "gemini", "openai", "ollama"}
 class ModelTarget:
     provider: str
     model_id: str
+
+
+def _invoice_module():
+    return import_module(".documents.invoice", __package__)
+
+
+def _invoice_prompt_bundle() -> tuple[str, str, list, dict]:
+    module = _invoice_module()
+    return (
+        module.EXTRACTION_PROMPT,
+        module.EXTRACTION_PROMPT_GPT_OSS,
+        module.EXAMPLES,
+        module._CEREBRAS_RESPONSE_FORMAT,
+    )
+
+
+def _repair_invoice_json(raw_text: str) -> str:
+    return _invoice_module()._repair_json(raw_text)
 
 
 def _provider_display_name(provider: str) -> str:
@@ -421,6 +433,7 @@ def extract_cerebras_direct(
     client = _get_cerebras_client()
     max_retries = runtime.cerebras_max_retries
     retry_base_delay_s = runtime.cerebras_retry_base_delay_s
+    _, extraction_prompt_gpt_oss, _, cerebras_response_format = _invoice_prompt_bundle()
 
     def _call_chunk(idx_chunk: tuple[int, str]) -> tuple[int, str, dict[str, int]]:
         idx, chunk = idx_chunk
@@ -431,11 +444,11 @@ def extract_cerebras_direct(
                 resp = client.chat.completions.create(
                     model=model_id,
                     messages=[
-                        {"role": "system", "content": EXTRACTION_PROMPT_GPT_OSS},
+                        {"role": "system", "content": extraction_prompt_gpt_oss},
                         {"role": "user", "content": user_content},
                     ],
                     temperature=0,
-                    response_format=_CEREBRAS_RESPONSE_FORMAT,
+                    response_format=cerebras_response_format,
                     max_tokens=32768,
                 )
                 raw = resp.choices[0].message.content or '{"items":[]}'
@@ -497,7 +510,7 @@ def extract_cerebras_direct(
             if usage:
                 usage_by_chunk.append(usage)
             parsed = None
-            for candidate in (raw, _repair_json(raw)):
+            for candidate in (raw, _repair_invoice_json(raw)):
                 try:
                     parsed = json.loads(candidate)
                     break
@@ -543,33 +556,21 @@ def extract_with_langextract_optimized(
     if target.provider == "cerebras":
         return extract_cerebras_direct(context_text, target.model_id, header_context)
 
-    config = _build_lx_config(target)
-    prompt = EXTRACTION_PROMPT
-    buffer = get_runtime_settings().llm_max_char_buffer
-
-    try:
-        annotated_doc = lx.extract(
-            text_or_documents=context_text,
-            prompt_description=prompt,
-            examples=EXAMPLES,
-            config=config,
-            additional_context=header_context or None,
-            max_char_buffer=buffer,
-        )
-    except Exception as exc:
-        logger.warning(
-            "lx.extract() failed (%s: %s) — returning empty result",
-            type(exc).__name__,
-            exc,
-            exc_info=True,
-        )
-        return "[]", None, {}
+    extraction_prompt, _, examples, _ = _invoice_prompt_bundle()
+    extractions, annotated_doc, usage = extract_with_langextract_entities(
+        context_text,
+        target,
+        prompt_description=extraction_prompt,
+        examples=examples,
+        additional_context=header_context or None,
+    )
 
     all_items = []
-    for extraction in annotated_doc.extractions:
-        item = {"description": extraction.extraction_text}
-        if extraction.attributes:
-            item.update(extraction.attributes)
+    for extraction in extractions:
+        item = {"description": extraction["extraction_text"]}
+        attributes = extraction.get("attributes", {})
+        if isinstance(attributes, dict):
+            item.update(attributes)
         all_items.append(item)
 
     logger.debug(
@@ -579,4 +580,70 @@ def extract_with_langextract_optimized(
         json.dumps(all_items[:3], ensure_ascii=False)[:500],
     )
 
-    return json.dumps(all_items, ensure_ascii=False), annotated_doc, {}
+    return json.dumps(all_items, ensure_ascii=False), annotated_doc, usage
+
+
+def extract_with_langextract_entities(
+    context_text: str,
+    model: str | ModelTarget,
+    *,
+    prompt_description: str,
+    examples: list,
+    additional_context: str | None = None,
+    max_char_buffer: int | None = None,
+) -> tuple[list[dict[str, object]], object, dict[str, int]]:
+    """
+    Run LangExtract with document-specific prompts/examples and return raw extractions.
+
+    Each extraction is normalized into:
+      {
+        "extraction_class": "...",
+        "extraction_text": "...",
+        "attributes": {...},
+      }
+    """
+    target = model if isinstance(model, ModelTarget) else resolve_model_target(model)
+    if target.provider == "cerebras":
+        raise ValueError(
+            "LangExtract-backed extraction is not supported for provider 'cerebras'."
+        )
+
+    config = _build_lx_config(target)
+    buffer = max_char_buffer or get_runtime_settings().llm_max_char_buffer
+
+    try:
+        annotated_doc = lx.extract(
+            text_or_documents=context_text,
+            prompt_description=prompt_description,
+            examples=examples,
+            config=config,
+            additional_context=additional_context or None,
+            max_char_buffer=buffer,
+        )
+    except Exception as exc:
+        logger.warning(
+            "lx.extract() failed (%s: %s) — returning empty result",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return [], None, {}
+
+    normalized_extractions: list[dict[str, object]] = []
+    for extraction in annotated_doc.extractions:
+        normalized_extractions.append(
+            {
+                "extraction_class": extraction.extraction_class,
+                "extraction_text": extraction.extraction_text,
+                "attributes": dict(extraction.attributes or {}),
+            }
+        )
+
+    logger.debug(
+        "[langextract] model=%s  extracted=%d entities  preview=%s",
+        target.model_id,
+        len(normalized_extractions),
+        json.dumps(normalized_extractions[:5], ensure_ascii=False)[:700],
+    )
+
+    return normalized_extractions, annotated_doc, {}
