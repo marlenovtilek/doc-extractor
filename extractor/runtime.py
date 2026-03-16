@@ -53,7 +53,7 @@ def get_runtime_settings() -> RuntimeSettings:
     return RuntimeSettings(
         doc_extractor_api_token=os.getenv("DOC_EXTRACTOR_API_TOKEN", ""),
         langextract_api_key=os.getenv("LANGEXTRACT_API_KEY", ""),
-        llm_model_primary=os.getenv("LLM_MODEL_PRIMARY", "cerebras"),
+        llm_model_primary=os.getenv("LLM_MODEL_PRIMARY", "cerebras::llama3.1-8b"),
         llm_model_fallback=os.getenv("LLM_MODEL_FALLBACK", "gemini"),
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         openai_base_url=os.getenv("OPENAI_BASE_URL", ""),

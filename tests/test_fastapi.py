@@ -4,7 +4,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from fastapi_app.main import app
+from app.main import app
 from extractor.runtime import clear_runtime_settings_cache
 
 
@@ -96,7 +96,7 @@ class FastAPISmokeTests(unittest.TestCase):
         self.assertEqual(meta_response.status_code, 200)
         self.assertEqual(health_response.status_code, 200)
 
-    @patch("fastapi_app.main.execute_extraction_request")
+    @patch("app.main.execute_extraction_request")
     def test_extract_returns_stateless_payload(self, mock_execute):
         mock_execute.return_value = {
             "status": "success",
