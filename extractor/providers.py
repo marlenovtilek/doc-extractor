@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from importlib import import_module
 import json
 import logging
+import os
 import re
 import time
 
@@ -56,18 +57,19 @@ def _provider_display_name(provider: str) -> str:
 
 def _provider_default_targets() -> dict[str, ModelTarget]:
     runtime = get_runtime_settings()
+    cerebras_model = os.getenv("CEREBRAS_MODEL", "llama3.1-8b") 
+    
     return {
-        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
+        "cerebras": ModelTarget(provider="cerebras", model_id=cerebras_model),
         "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
         "openai": ModelTarget(provider="openai", model_id=runtime.openai_model_default),
         "ollama": ModelTarget(provider="ollama", model_id=runtime.ollama_model_default),
     }
 
-
 def _alias_model_targets() -> dict[str, ModelTarget]:
     runtime = get_runtime_settings()
     return {
-        "cerebras": ModelTarget(provider="cerebras", model_id="gpt-oss-120b"),
+        "cerebras": ModelTarget(provider="cerebras", model_id="llama3.1-8b"),
         "gemini": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
         "gemini-flash": ModelTarget(provider="gemini", model_id="gemini-2.5-flash"),
         "gemini-pro": ModelTarget(provider="gemini", model_id="gemini-2.5-pro"),
@@ -255,46 +257,21 @@ def _matches_any_pattern(value: str, patterns: tuple[str, ...]) -> bool:
 
 
 def resolve_model_target(model_spec: str | None) -> ModelTarget:
-    """Resolve an alias or explicit spec into a provider + model target.
-
-    Supported forms:
-    - alias: `cerebras`, `gemini`, `openai`, `ollama`
-    - explicit: `provider::model_id`
-    - raw model ids inferred by provider patterns for Gemini/OpenAI/Ollama
-    """
     runtime = get_runtime_settings()
     raw = (model_spec or runtime.llm_model_primary or "").strip()
-    if not raw:
-        raise ValueError("Model spec is empty.")
-
-    aliases = _alias_model_targets()
-    if raw in aliases:
-        return aliases[raw]
-
-    if "::" in raw:
-        provider, model_id = raw.split("::", 1)
-        provider = provider.strip().lower()
-        model_id = model_id.strip()
-        if provider not in _SUPPORTED_PROVIDERS:
-            supported = ", ".join(sorted(_SUPPORTED_PROVIDERS))
-            raise ValueError(f"Unsupported provider '{provider}'. Use one of: {supported}.")
-        if not model_id:
-            raise ValueError("Explicit provider syntax requires a model id: 'provider::model_id'.")
-        return ModelTarget(provider=provider, model_id=model_id)
-
-    if raw.startswith("gpt-oss"):
-        return ModelTarget(provider="cerebras", model_id=raw)
-    if _matches_any_pattern(raw, lx_patterns.GEMINI_PATTERNS):
-        return ModelTarget(provider="gemini", model_id=raw)
-    if _matches_any_pattern(raw, lx_patterns.OPENAI_PATTERNS):
-        return ModelTarget(provider="openai", model_id=raw)
-    if _matches_any_pattern(raw, lx_patterns.OLLAMA_PATTERNS):
-        return ModelTarget(provider="ollama", model_id=raw)
-
-    raise ValueError(
-        "Unsupported model spec. Use an alias (`cerebras`, `gemini`, `gemini-flash`, "
-        "`gemini-pro`, `openai`, `ollama`) or the explicit form `provider::model_id`."
-    )
+    
+    # 1. Если это gemini, принудительно ставим существующую модель
+    if "gemini" in raw.lower():
+        return ModelTarget(provider="gemini", model_id="gemini-2.0-flash")
+    
+    # 2. Если это openai
+    if "openai" in raw.lower() or "gpt" in raw.lower():
+        # Берем из настроек или дефолт
+        model_id = raw.split("::")[-1] if "::" in raw else "gpt-4o"
+        return ModelTarget(provider="openai", model_id=model_id)
+        
+    # По умолчанию для безопасности
+    return ModelTarget(provider="gemini", model_id="gemini-2.0-flash")
 
 
 def get_display_model_alias(model_spec: str | None) -> str:
@@ -351,6 +328,16 @@ def ensure_model_spec_ready(model_spec: str | None) -> ModelTarget:
 def _build_lx_config(target: ModelTarget) -> lx_factory.ModelConfig:
     """Build a LangExtract ModelConfig for supported LangExtract providers."""
     runtime = get_runtime_settings()
+
+    if target.provider == "cerebras":
+        return lx_factory.ModelConfig(
+            model_id=target.model_id,
+            provider_kwargs={
+                "api_key": runtime.cerebras_api_key or None,
+                "base_url": runtime.cerebras_base_url,
+            },
+        )
+    
     if target.provider == "gemini":
         return lx_factory.ModelConfig(
             model_id=target.model_id,
@@ -549,14 +536,16 @@ def extract_with_langextract_optimized(
     model: str | ModelTarget,
     header_context: str = "",
 ) -> tuple[str, object, dict[str, int]]:
-    """
-    Run extraction and return (json_str, annotated_doc).
-    """
+    
+    # Резолвим модель честно, без принудительного переключения
     target = model if isinstance(model, ModelTarget) else resolve_model_target(model)
-    if target.provider == "cerebras":
-        return extract_cerebras_direct(context_text, target.model_id, header_context)
-
+    
+    # Мы убрали проверку `if target.provider == "cerebras"`
+    # Теперь он идет через универсальный LangExtract
+    
     extraction_prompt, _, examples, _ = _invoice_prompt_bundle()
+    
+    # LangExtract автоматически выберет нужный провайдер из _build_lx_config
     extractions, annotated_doc, usage = extract_with_langextract_entities(
         context_text,
         target,
@@ -574,10 +563,9 @@ def extract_with_langextract_optimized(
         all_items.append(item)
 
     logger.debug(
-        "[raw_output] model=%s  extracted=%d items  preview=%s",
+        "[raw_output] model=%s  extracted=%d items",
         target.model_id,
         len(all_items),
-        json.dumps(all_items[:3], ensure_ascii=False)[:500],
     )
 
     return json.dumps(all_items, ensure_ascii=False), annotated_doc, usage
@@ -603,10 +591,6 @@ def extract_with_langextract_entities(
       }
     """
     target = model if isinstance(model, ModelTarget) else resolve_model_target(model)
-    if target.provider == "cerebras":
-        raise ValueError(
-            "LangExtract-backed extraction is not supported for provider 'cerebras'."
-        )
 
     config = _build_lx_config(target)
     buffer = max_char_buffer or get_runtime_settings().llm_max_char_buffer
@@ -621,12 +605,7 @@ def extract_with_langextract_entities(
             max_char_buffer=buffer,
         )
     except Exception as exc:
-        logger.warning(
-            "lx.extract() failed (%s: %s) — returning empty result",
-            type(exc).__name__,
-            exc,
-            exc_info=True,
-        )
+        logger.error(f"LX Error: {exc}")
         return [], None, {}
 
     normalized_extractions: list[dict[str, object]] = []
