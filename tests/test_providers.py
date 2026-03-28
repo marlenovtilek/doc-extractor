@@ -3,7 +3,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from extractor.providers import (
+from extractor.config.runtime import clear_runtime_settings_cache
+from extractor.integrations.providers import (
     _extract_cerebras_usage,
     _is_non_retryable_cerebras_error,
     _is_retryable_cerebras_error,
@@ -14,7 +15,6 @@ from extractor.providers import (
     list_model_profiles,
     resolve_model_target,
 )
-from extractor.runtime import clear_runtime_settings_cache
 
 
 class CerebrasRetryPolicyTests(unittest.TestCase):
@@ -62,6 +62,7 @@ class CerebrasRetryPolicyTests(unittest.TestCase):
     @patch.dict(
         os.environ,
         {
+            "CEREBRAS_MODEL": "gpt-oss-120b",
             "OPENAI_MODEL_DEFAULT": "gpt-4o",
             "OLLAMA_MODEL_DEFAULT": "qwen2.5:14b",
         },
@@ -70,12 +71,22 @@ class CerebrasRetryPolicyTests(unittest.TestCase):
     def test_resolve_model_target_supports_aliases_and_explicit_provider_syntax(self):
         clear_runtime_settings_cache()
 
+        cerebras_target = resolve_model_target("cerebras")
         openai_target = resolve_model_target("openai")
         ollama_target = resolve_model_target("ollama")
+        explicit_cerebras_target = resolve_model_target("cerebras::gpt-oss-120b")
         explicit_ollama_target = resolve_model_target("ollama::mistral:7b")
 
+        self.assertEqual(
+            (cerebras_target.provider, cerebras_target.model_id),
+            ("cerebras", "gpt-oss-120b"),
+        )
         self.assertEqual((openai_target.provider, openai_target.model_id), ("openai", "gpt-4o"))
         self.assertEqual((ollama_target.provider, ollama_target.model_id), ("ollama", "qwen2.5:14b"))
+        self.assertEqual(
+            (explicit_cerebras_target.provider, explicit_cerebras_target.model_id),
+            ("cerebras", "gpt-oss-120b"),
+        )
         self.assertEqual(
             (explicit_ollama_target.provider, explicit_ollama_target.model_id),
             ("ollama", "mistral:7b"),

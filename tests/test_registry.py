@@ -1,17 +1,15 @@
 import unittest
 
-from extractor.documents.contract import (
-    ContractHandler,
-    PowerOfAttorneyHandler,
-    SupplyContractHandler,
-)
+from extractor.documents.regular.contract import ContractHandler
 from extractor.documents.invoice import InvoiceHandler, TechnicalDocumentHandler
+from extractor.documents.regular.power_of_attorney import PowerOfAttorneyHandler
 from extractor.documents.registry import (
     get_document_definition,
     get_document_handler,
     list_document_definitions,
     list_supported_document_codes,
 )
+from extractor.documents.regular.supply_contract import SupplyContractHandler
 
 
 class DocumentRegistryTests(unittest.TestCase):
@@ -33,7 +31,30 @@ class DocumentRegistryTests(unittest.TestCase):
     def test_registry_lists_supported_codes(self):
         self.assertEqual(
             list_supported_document_codes(),
-            ["04021", "03011", "00012", "11019", "09022"],
+            [
+                "04021",
+                "03011",
+                "00012",
+                "11019",
+                "000011",
+                "00002",
+                "000004",
+                "09022",
+                "22222",
+                "9012",
+                "01011",
+                "11111",
+                "11014",
+                "11116",
+                "11114",
+                "010000",
+                "01207",
+                "00010",
+                "01201",
+                "09999",
+                "10999",
+                "ELSE",
+            ],
         )
 
     def test_registry_lists_document_definitions_with_schema(self):

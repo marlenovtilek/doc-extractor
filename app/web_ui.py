@@ -239,9 +239,14 @@ def render_home_page() -> str:
           minmax(170px, 210px)
           minmax(150px, 180px)
           minmax(210px, 260px)
-          minmax(180px, 1fr);
+          minmax(0, 1fr);
         gap: 8px;
         align-items: end;
+      }
+
+      .toolbar-actions {
+        display: flex;
+        justify-content: flex-end;
       }
 
       label {
@@ -278,10 +283,14 @@ def render_home_page() -> str:
       .button-row {
         display: flex;
         gap: 8px;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: flex-end;
         min-height: 40px;
+      }
+
+      .button-row button {
+        white-space: nowrap;
       }
 
       button {
@@ -345,6 +354,13 @@ def render_home_page() -> str:
         gap: 10px;
       }
 
+      .results-top-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
       .aux-grid {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -390,6 +406,21 @@ def render_home_page() -> str:
       .summary-panel .cards {
         flex: 1;
         align-content: stretch;
+      }
+
+      .selection-note {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: #fbf8f2;
+        border: 1px solid #eee3d3;
+        font-size: 11px;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+
+      .selection-note strong {
+        color: var(--ink);
       }
 
       .card {
@@ -442,6 +473,109 @@ def render_home_page() -> str:
         border: 1px solid #eee3d3;
       }
 
+      .review-panel {
+        display: grid;
+        gap: 10px;
+      }
+
+      .review-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .review-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid #eee3d3;
+        background: #fbf8f2;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .review-chip strong {
+        color: var(--ink);
+      }
+
+      .review-chip.high {
+        background: #fbefef;
+        border-color: #ecd3d3;
+        color: var(--error);
+      }
+
+      .review-chip.medium {
+        background: #f8f2e8;
+        border-color: #e7dac7;
+        color: var(--accent);
+      }
+
+      .review-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .review-item {
+        padding: 10px 11px;
+        border-radius: 12px;
+        border: 1px solid #eee3d3;
+        background: #fbf8f2;
+        cursor: pointer;
+        transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+      }
+
+      .review-item:hover {
+        transform: translateY(-1px);
+        border-color: #dcc8ae;
+        background: #fffaf2;
+      }
+
+      .review-item-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+        margin-bottom: 6px;
+      }
+
+      .review-item-title {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .review-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 7px;
+        border-radius: 999px;
+        font-size: 10px;
+        border: 1px solid #eee3d3;
+        white-space: nowrap;
+      }
+
+      .review-badge.high {
+        color: var(--error);
+        background: #fbefef;
+        border-color: #ecd3d3;
+      }
+
+      .review-badge.medium {
+        color: var(--accent);
+        background: #f8f2e8;
+        border-color: #e7dac7;
+      }
+
+      .review-item-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        color: var(--muted);
+        font-size: 10px;
+      }
+
       .table-wrap {
         overflow: auto;
         border: 1px solid #eee3d3;
@@ -461,6 +595,18 @@ def render_home_page() -> str:
         text-align: left;
         vertical-align: top;
         font-size: 11px;
+      }
+
+      tr.row-review-high td {
+        background: #fff4f4;
+      }
+
+      tr.row-review-medium td {
+        background: #fff9ef;
+      }
+
+      tr.row-focused td {
+        box-shadow: inset 0 0 0 9999px rgba(148, 91, 45, 0.12);
       }
 
       th {
@@ -487,7 +633,8 @@ def render_home_page() -> str:
 
       @media (max-width: 1100px) {
         .workspace-grid,
-        .aux-grid {
+        .aux-grid,
+        .results-top-grid {
           grid-template-columns: 1fr;
         }
         .cards {
@@ -496,9 +643,9 @@ def render_home_page() -> str:
         .toolbar-row {
           grid-template-columns: 1fr 1fr;
         }
-        .toolbar-row .button-row {
+        .toolbar-row .toolbar-actions {
           grid-column: 1 / -1;
-          flex-wrap: wrap;
+          justify-content: flex-start;
         }
         h1 {
           white-space: normal;
@@ -562,9 +709,12 @@ def render_home_page() -> str:
                   <label for="model">Model</label>
                   <select id="model" name="model"></select>
                 </div>
-                <div class="button-row">
-                  <button id="submit-button" class="primary" type="submit">Run Extraction</button>
-                  <button id="clear-button" class="secondary" type="button">Clear</button>
+                <div class="toolbar-actions">
+                  <div class="button-row">
+                    <button id="submit-button" class="primary" type="submit">Run Extraction</button>
+                    <button id="cancel-button" class="secondary" type="button" disabled>Cancel</button>
+                    <button id="clear-button" class="secondary" type="button">Clear</button>
+                  </div>
                 </div>
               </div>
 
@@ -606,18 +756,23 @@ def render_home_page() -> str:
               <div class="card"><div class="card-label">Duration</div><div id="summary-duration" class="card-value">-</div></div>
               <div class="card"><div class="card-label">Fallback</div><div id="summary-fallback" class="card-value">-</div></div>
             </div>
+            <div id="summary-selection" class="selection-note">
+              <strong>Model Route:</strong> pending
+            </div>
           </div>
         </div>
       </section>
 
       <section>
         <div class="results-grid">
-          <div class="panel">
-            <div class="section-head">
-              <h3>Fields</h3>
-              <span class="muted mono">result.data.fields</span>
+          <div class="results-top-grid">
+            <div class="panel">
+              <div class="section-head">
+                <h3>Fields</h3>
+                <span class="muted mono">result.data.fields</span>
+              </div>
+              <div id="fields-view" class="kv muted">No extracted fields yet.</div>
             </div>
-            <div id="fields-view" class="kv muted">No extracted fields yet.</div>
           </div>
 
           <div class="panel">
@@ -652,11 +807,14 @@ def render_home_page() -> str:
 
     <script>
       let metaState = null;
+      let activeJobId = null;
+      let activeJobPoll = null;
       const documentSelect = document.getElementById("document_code");
       const modelFamilySelect = document.getElementById("model_family");
       const modelSelect = document.getElementById("model");
       const ocrDraftInput = document.getElementById("ocr_draft");
       const submitButton = document.getElementById("submit-button");
+      const cancelButton = document.getElementById("cancel-button");
       const clearButton = document.getElementById("clear-button");
       const healthPill = document.getElementById("health-pill");
       const resultPill = document.getElementById("result-pill");
@@ -670,6 +828,7 @@ def render_home_page() -> str:
       const itemsMeta = document.getElementById("items-meta");
       const metricsView = document.getElementById("metrics-view");
       const rawView = document.getElementById("raw-view");
+      const summarySelection = document.getElementById("summary-selection");
 
       function getConfiguredFamilyModels(meta, family) {
         const selectedFamily = (meta.model_families || []).find((item) => item.provider === family);
@@ -681,6 +840,29 @@ def render_home_page() -> str:
 
       function setJson(target, value) {
         target.textContent = JSON.stringify(value, null, 2);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function stopPollingJob() {
+        if (activeJobPoll) {
+          clearTimeout(activeJobPoll);
+          activeJobPoll = null;
+        }
+        activeJobId = null;
+      }
+
+      function setJobControls(isActive, isCancelling = false) {
+        submitButton.disabled = isActive;
+        cancelButton.disabled = !isActive || isCancelling;
+        clearButton.disabled = isActive;
       }
 
       async function readJsonResponse(response) {
@@ -761,8 +943,8 @@ def render_home_page() -> str:
         runtimeStrip.innerHTML = rows
           .map(([label, value]) => `
             <div class="runtime-chip">
-              <span>${label}</span>
-              <strong class="mono">${value}</strong>
+              <span>${escapeHtml(label)}</span>
+              <strong class="mono">${escapeHtml(value)}</strong>
             </div>
           `)
           .join("");
@@ -778,14 +960,14 @@ def render_home_page() -> str:
             return `
               <div class="provider-card">
                 <div class="provider-top">
-                  <div class="provider-name">${provider.label}</div>
-                  <span class="provider-status ${statusClass}">${statusLabel}</span>
+                  <div class="provider-name">${escapeHtml(provider.label)}</div>
+                  <span class="provider-status ${statusClass}">${escapeHtml(statusLabel)}</span>
                 </div>
                 <div class="provider-meta">
-                  <div><span class="muted">Type</span> · <strong>${provider.kind}</strong></div>
-                  <div><span class="muted">Default</span> · <strong class="mono">${provider.default_model_id}</strong></div>
+                  <div><span class="muted">Type</span> · <strong>${escapeHtml(provider.kind)}</strong></div>
+                  <div><span class="muted">Default</span> · <strong class="mono">${escapeHtml(provider.default_model_id)}</strong></div>
                 </div>
-                <div class="provider-detail">${detail}</div>
+                <div class="provider-detail">${escapeHtml(detail)}</div>
               </div>
             `;
           })
@@ -804,8 +986,8 @@ def render_home_page() -> str:
         fieldsView.innerHTML = entries
           .map(([key, value]) => `
             <div class="kv-row">
-              <span class="muted">${key}</span>
-              <strong class="mono">${String(value)}</strong>
+              <span class="muted">${escapeHtml(key)}</span>
+              <strong class="mono">${escapeHtml(value)}</strong>
             </div>
           `)
           .join("");
@@ -829,22 +1011,68 @@ def render_home_page() -> str:
           }, new Set())
         );
 
-        const thead = `<thead><tr>${columns.map((column) => `<th>${column}</th>`).join("")}</tr></thead>`;
+        const thead = `<thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>`;
         const tbody = rows
           .map(
-            (row) => `
-              <tr>
+            (row) => {
+              const priority = String(row?.review_priority || "").toLowerCase();
+              const position = row?.position ?? "";
+              const rowClass =
+                row?.review_required && priority === "high"
+                  ? "row-review-high"
+                  : row?.review_required && priority === "medium"
+                    ? "row-review-medium"
+                    : "";
+              return `
+              <tr class="${rowClass}" data-position="${position}">
                 ${columns
-                  .map((column) => `<td>${row?.[column] ?? ""}</td>`)
+                  .map((column) => `<td>${escapeHtml(row?.[column] ?? "")}</td>`)
                   .join("")}
               </tr>
-            `
+            `;
+            }
           )
           .join("");
 
         itemsView.innerHTML = `<table>${thead}<tbody>${tbody}</tbody></table>`;
         itemsView.classList.remove("hidden");
         itemsEmpty.classList.add("hidden");
+      }
+
+      function humanizeSelectionReason(reason) {
+        const value = String(reason || "").trim();
+        if (!value) {
+          return "no selection details";
+        }
+
+        const map = {
+          user_selected_model: "selected manually in the form",
+          auto_route_disabled: "auto-routing disabled, using configured defaults",
+          large_or_tabular_table_document: "large or strongly tabular OCR, using table-optimized route",
+          small_table_document: "small table OCR, using lower-cost default route",
+          object_document: "object-style document, using default object extraction route",
+        };
+
+        return map[value] || value.replaceAll("_", " ");
+      }
+
+      function humanizeJobProgress(progress, detail) {
+        const labelMap = {
+          queued: "queued",
+          routing: "routing",
+          extracting: "extracting",
+          cleaning: "cleaning OCR",
+          parsing: "parsing rows",
+          llm_primary: "primary model",
+          llm_fallback: "fallback model",
+          finalizing: "finalizing result",
+          cancelling: "cancelling",
+          completed: "completed",
+          cancelled: "cancelled",
+          failed: "failed",
+        };
+        const label = labelMap[String(progress || "").trim()] || String(progress || "working");
+        return detail ? `${label} · ${detail}` : label;
       }
 
       function updateSummary(response) {
@@ -854,6 +1082,10 @@ def render_home_page() -> str:
           tokenUsage?.primary?.total_tokens ??
           tokenUsage?.fallback?.total_tokens;
         const duration = response.metrics?.t_total_s;
+        const selection = response.metrics?.model_selection || {};
+        const selectionMode = selection.mode || "unknown";
+        const selectionModel = selection.selected_model || response.model_id || "-";
+        const selectionReason = humanizeSelectionReason(selection.reason);
 
         document.getElementById("summary-document").textContent = response.document_code || "-";
         document.getElementById("summary-model").textContent = response.model_id || "-";
@@ -864,6 +1096,8 @@ def render_home_page() -> str:
           Number.isFinite(Number(duration)) ? `${Number(duration).toFixed(2)}s` : "-";
         document.getElementById("summary-fallback").textContent =
           response.metrics?.fallback_used ? "Yes" : "No";
+        summarySelection.innerHTML =
+          `<strong>Model Route:</strong> ${escapeHtml(selectionMode)} · <span class="mono">${escapeHtml(selectionModel)}</span> · ${escapeHtml(selectionReason)}`;
       }
 
       function populateMeta(meta) {
@@ -899,15 +1133,109 @@ def render_home_page() -> str:
 
       function populateModelOptions(meta, family, preferredAlias = "") {
         const configuredModels = getConfiguredFamilyModels(meta, family);
-        modelSelect.innerHTML = configuredModels
-          .map((item) => `<option value="${item.alias}">${item.alias} · ${item.model_id}</option>`)
-          .join("");
+        const options = [
+          `<option value="">Auto · service decides</option>`,
+          ...configuredModels.map(
+            (item) => `<option value="${item.alias}">${item.alias} · ${item.model_id}</option>`
+          ),
+        ];
+        modelSelect.innerHTML = options.join("");
 
         if (preferredAlias && configuredModels.some((item) => item.alias === preferredAlias)) {
           modelSelect.value = preferredAlias;
-        } else if (configuredModels.length) {
-          modelSelect.value = configuredModels[0].alias;
+        } else {
+          modelSelect.value = "";
         }
+      }
+
+      function applyExtractionResponse(json) {
+        resultPill.textContent = `${json.status} · ${json.result_type}`;
+        resultPill.className = "pill mono ok";
+        updateSummary(json);
+        renderFields(json.data?.fields || {});
+        renderItems(json.data?.items || json.items || []);
+        setJson(metricsView, json.metrics || {});
+        setJson(rawView, json);
+      }
+
+      function resetSummary() {
+        document.getElementById("summary-document").textContent = "-";
+        document.getElementById("summary-model").textContent = "-";
+        document.getElementById("summary-count").textContent = "0";
+        document.getElementById("summary-tokens").textContent = "-";
+        document.getElementById("summary-duration").textContent = "-";
+        document.getElementById("summary-fallback").textContent = "-";
+        summarySelection.innerHTML = "<strong>Model Route:</strong> pending";
+      }
+
+      function showJobState(job) {
+        const detail = humanizeJobProgress(job.progress, job.progress_detail || "");
+        resultPill.textContent = `${job.status} · ${detail}`;
+        resultPill.className = "pill mono";
+        summarySelection.innerHTML = `<strong>Job Progress:</strong> ${detail}`;
+        setJson(rawView, job);
+      }
+
+      function handleCancelledJob(job) {
+        stopPollingJob();
+        hideError();
+        resultPill.textContent = "cancelled";
+        resultPill.className = "pill mono";
+        summarySelection.innerHTML = "<strong>Job Progress:</strong> cancelled by user";
+        setJson(metricsView, {});
+        setJson(rawView, job || { status: "cancelled" });
+        setJobControls(false);
+      }
+
+      async function pollJob(jobId) {
+        const response = await fetch(`/web/jobs/${jobId}/`);
+        const json = await readJsonResponse(response);
+        if (!response.ok) {
+          throw new Error(json.detail || "Failed to read extraction job.");
+        }
+
+        if (json.status === "queued" || json.status === "running") {
+          showJobState(json);
+          setJobControls(true, Boolean(json.cancel_requested));
+          activeJobPoll = window.setTimeout(() => {
+            pollJob(jobId).catch(handleJobError);
+          }, 1000);
+          return;
+        }
+
+        stopPollingJob();
+        setJobControls(false);
+
+        if (json.status === "cancelled") {
+          handleCancelledJob(json);
+          return;
+        }
+
+        if (json.status === "completed" && json.result) {
+          applyExtractionResponse(json.result);
+          return;
+        }
+
+        resultPill.textContent = "failed";
+        resultPill.className = "pill mono bad";
+        showError(json.error || json.result?.error || "Extraction failed");
+        if (json.result) {
+          setJson(metricsView, json.result.metrics || {});
+          setJson(rawView, json.result);
+        } else {
+          setJson(metricsView, {});
+          setJson(rawView, { error: json.error || "Extraction failed" });
+        }
+      }
+
+      function handleJobError(error) {
+        stopPollingJob();
+        setJobControls(false);
+        resultPill.textContent = "failed";
+        resultPill.className = "pill mono bad";
+        showError(error.message || "Extraction failed");
+        setJson(metricsView, {});
+        setJson(rawView, { error: error.message || "Extraction failed" });
       }
 
       async function loadMeta() {
@@ -937,19 +1265,21 @@ def render_home_page() -> str:
 
       async function runExtraction(event) {
         event.preventDefault();
-        submitButton.disabled = true;
-        resultPill.textContent = "Running...";
+        stopPollingJob();
+        setJobControls(true, true);
+        resultPill.textContent = "queued";
         resultPill.className = "pill mono";
         hideError();
+        summarySelection.innerHTML = "<strong>Job Progress:</strong> queued";
 
         const payload = {
           document_code: documentSelect.value,
-          model: modelSelect.value,
+          model: modelSelect.value || null,
           ocr_draft: ocrDraftInput.value,
         };
 
         try {
-          const response = await fetch("/web/extract/", {
+          const response = await fetch("/web/jobs/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -959,34 +1289,49 @@ def render_home_page() -> str:
           if (!response.ok) {
             throw new Error(json.detail || "Extraction failed");
           }
-
-          resultPill.textContent = `${json.status} · ${json.result_type}`;
-          resultPill.className = "pill mono ok";
-          updateSummary(json);
-          renderFields(json.data?.fields || {});
-          renderItems(json.data?.items || json.items || []);
-          setJson(metricsView, json.metrics || {});
-          setJson(rawView, json);
+          activeJobId = json.job_id;
+          setJobControls(true);
+          showJobState(json);
+          await pollJob(json.job_id);
         } catch (error) {
-          resultPill.textContent = "failed";
-          resultPill.className = "pill mono bad";
-          showError(error.message);
-          renderFields({});
-          renderItems([]);
-          setJson(metricsView, {});
-          setJson(rawView, { error: error.message });
-          document.getElementById("summary-document").textContent = payload.document_code || "-";
-          document.getElementById("summary-model").textContent = payload.model || "-";
-          document.getElementById("summary-count").textContent = "0";
-          document.getElementById("summary-tokens").textContent = "-";
-          document.getElementById("summary-duration").textContent = "-";
-          document.getElementById("summary-fallback").textContent = "-";
-        } finally {
-          submitButton.disabled = false;
+          handleJobError(error);
+        }
+      }
+
+      async function cancelExtraction() {
+        if (!activeJobId) {
+          return;
+        }
+
+        cancelButton.disabled = true;
+        resultPill.textContent = "running · cancelling";
+        resultPill.className = "pill mono";
+        summarySelection.innerHTML = "<strong>Job Progress:</strong> waiting for the current step to stop";
+
+        try {
+          const response = await fetch(`/web/jobs/${activeJobId}/cancel/`, {
+            method: "POST",
+          });
+          const json = await readJsonResponse(response);
+          if (!response.ok) {
+            throw new Error(json.detail || "Failed to cancel extraction job.");
+          }
+
+          if (json.status === "cancelled") {
+            handleCancelledJob(json);
+            return;
+          }
+
+          showJobState(json);
+          setJobControls(true, true);
+        } catch (error) {
+          handleJobError(error);
         }
       }
 
       clearButton.addEventListener("click", () => {
+        stopPollingJob();
+        setJobControls(false);
         ocrDraftInput.value = "";
         hideError();
         renderFields({});
@@ -995,13 +1340,10 @@ def render_home_page() -> str:
         setJson(rawView, {});
         resultPill.textContent = "No result yet";
         resultPill.className = "pill mono";
-        document.getElementById("summary-document").textContent = "-";
-        document.getElementById("summary-model").textContent = "-";
-        document.getElementById("summary-count").textContent = "0";
-        document.getElementById("summary-tokens").textContent = "-";
-        document.getElementById("summary-duration").textContent = "-";
-        document.getElementById("summary-fallback").textContent = "-";
+        resetSummary();
       });
+
+      cancelButton.addEventListener("click", cancelExtraction);
 
       modelFamilySelect.addEventListener("change", () => {
         if (!metaState) {
@@ -1011,6 +1353,7 @@ def render_home_page() -> str:
       });
 
       document.getElementById("extract-form").addEventListener("submit", runExtraction);
+      setJobControls(false);
       loadMeta().catch((error) => {
         healthPill.textContent = "metadata error";
         healthPill.className = "pill mono bad";

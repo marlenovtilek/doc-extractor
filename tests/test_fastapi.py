@@ -1,16 +1,16 @@
 import os
+import asyncio
 from unittest.mock import patch
 import unittest
 
-from fastapi.testclient import TestClient
+import httpx
 
 from app.main import app
-from extractor.runtime import clear_runtime_settings_cache
+from extractor.config.runtime import clear_runtime_settings_cache
 
 
 class FastAPISmokeTests(unittest.TestCase):
     def setUp(self):
-        self.client = TestClient(app)
         self._original_api_token = os.environ.get("DOC_EXTRACTOR_API_TOKEN")
         os.environ.pop("DOC_EXTRACTOR_API_TOKEN", None)
         clear_runtime_settings_cache()
@@ -22,8 +22,19 @@ class FastAPISmokeTests(unittest.TestCase):
             os.environ["DOC_EXTRACTOR_API_TOKEN"] = self._original_api_token
         clear_runtime_settings_cache()
 
+    def request(self, method: str, path: str, **kwargs):
+        async def run_request():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+            ) as client:
+                return await client.request(method, path, **kwargs)
+
+        return asyncio.run(run_request())
+
     def test_home_page_renders_ui(self):
-        response = self.client.get("/")
+        response = self.request("GET", "/")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("doc-extractor", response.text)
@@ -31,19 +42,21 @@ class FastAPISmokeTests(unittest.TestCase):
         self.assertIn("Model Connections", response.text)
         self.assertIn("API Docs", response.text)
         self.assertIn("error-banner", response.text)
+        self.assertIn("Model Route:", response.text)
+        self.assertNotIn("Review Queue", response.text)
 
     def test_favicon_returns_no_content(self):
-        response = self.client.get("/favicon.ico")
+        response = self.request("GET", "/favicon.ico")
 
         self.assertEqual(response.status_code, 204)
 
     def test_swagger_docs_are_available(self):
-        response = self.client.get("/docs")
+        response = self.request("GET", "/docs")
 
         self.assertEqual(response.status_code, 200)
 
     def test_meta_returns_documents_and_models(self):
-        response = self.client.get("/api/meta/")
+        response = self.request("GET", "/api/meta/")
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -70,7 +83,7 @@ class FastAPISmokeTests(unittest.TestCase):
         os.environ["DOC_EXTRACTOR_API_TOKEN"] = "super-secret-token"
         clear_runtime_settings_cache()
 
-        response = self.client.get("/api/meta/")
+        response = self.request("GET", "/api/meta/")
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Invalid or missing API token.")
@@ -79,7 +92,8 @@ class FastAPISmokeTests(unittest.TestCase):
         os.environ["DOC_EXTRACTOR_API_TOKEN"] = "super-secret-token"
         clear_runtime_settings_cache()
 
-        response = self.client.get(
+        response = self.request(
+            "GET",
             "/api/meta/",
             headers={"Authorization": "Bearer super-secret-token"},
         )
@@ -90,8 +104,8 @@ class FastAPISmokeTests(unittest.TestCase):
         os.environ["DOC_EXTRACTOR_API_TOKEN"] = "super-secret-token"
         clear_runtime_settings_cache()
 
-        meta_response = self.client.get("/web/meta/")
-        health_response = self.client.get("/web/health/")
+        meta_response = self.request("GET", "/web/meta/")
+        health_response = self.request("GET", "/web/health/")
 
         self.assertEqual(meta_response.status_code, 200)
         self.assertEqual(health_response.status_code, 200)
@@ -102,16 +116,46 @@ class FastAPISmokeTests(unittest.TestCase):
             "status": "success",
             "document_code": "04021",
             "result_type": "table",
-            "document_schema": {"result_type": "table", "fields": [], "item_fields": []},
-            "data": {"fields": {}, "items": [{"position": 1, "description": "Item"}], "count": 1},
+            "document_schema": {
+                "result_type": "table",
+                "fields": [],
+                "item_fields": [
+                    {"name": "position", "label": "Position"},
+                    {"name": "description", "label": "Description"},
+                    {"name": "part_no", "label": "Part No"},
+                    {"name": "review_required", "label": "Review Required"},
+                ],
+            },
+            "data": {
+                "fields": {},
+                "items": [
+                    {
+                        "position": 1,
+                        "description": "Item",
+                        "part_no": "P-1",
+                        "review_required": True,
+                        "parsing_confidence": "low",
+                    }
+                ],
+                "count": 1,
+            },
             "model_id": "gpt-oss-120b",
-            "items": [{"position": 1, "description": "Item"}],
+            "items": [
+                {
+                    "position": 1,
+                    "description": "Item",
+                    "part_no": "P-1",
+                    "review_required": True,
+                    "parsing_confidence": "low",
+                }
+            ],
             "count": 1,
             "metrics": {"primary_valid": True},
             "error": "",
         }
 
-        response = self.client.post(
+        response = self.request(
+            "POST",
             "/api/extract/",
             json={"document_code": "04021", "ocr_draft": "Invoice", "model": "cerebras"},
         )
@@ -120,9 +164,67 @@ class FastAPISmokeTests(unittest.TestCase):
         self.assertEqual(response.json()["count"], 1)
         self.assertEqual(response.json()["result_type"], "table")
         self.assertEqual(response.json()["model_id"], "gpt-oss-120b")
+        self.assertEqual(response.json()["items"], [{"description": "Item"}])
+        self.assertEqual(response.json()["data"]["items"], [{"description": "Item"}])
+        schema_fields = response.json()["document_schema"]["item_fields"]
+        self.assertEqual(schema_fields, [{"name": "description", "label": "Description"}])
+
+    @patch("app.main.execute_extraction_request")
+    def test_web_extract_keeps_internal_item_fields_for_ui(self, mock_execute):
+        mock_execute.return_value = {
+            "status": "success",
+            "document_code": "04021",
+            "result_type": "table",
+            "document_schema": {"result_type": "table", "fields": [], "item_fields": []},
+            "data": {
+                "fields": {},
+                "items": [
+                    {
+                        "position": 1,
+                        "description": "Item",
+                        "part_no": "P-1",
+                        "review_required": True,
+                        "parsing_confidence": "low",
+                    }
+                ],
+                "count": 1,
+            },
+            "model_id": "gpt-oss-120b",
+            "items": [
+                {
+                    "position": 1,
+                    "description": "Item",
+                    "part_no": "P-1",
+                    "review_required": True,
+                    "parsing_confidence": "low",
+                }
+            ],
+            "count": 1,
+            "metrics": {"primary_valid": True},
+            "error": "",
+        }
+
+        response = self.request(
+            "POST",
+            "/web/extract/",
+            json={"document_code": "04021", "ocr_draft": "Invoice", "model": "cerebras"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["items"][0],
+            {
+                "position": 1,
+                "description": "Item",
+                "part_no": "P-1",
+                "review_required": True,
+                "parsing_confidence": "low",
+            },
+        )
 
     def test_extract_returns_400_for_unsupported_document_code(self):
-        response = self.client.post(
+        response = self.request(
+            "POST",
             "/api/extract/",
             json={"document_code": "99999", "ocr_draft": "Invoice"},
         )

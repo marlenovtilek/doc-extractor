@@ -1,33 +1,27 @@
 from __future__ import annotations
 
 from .base import DocumentDefinition, DocumentHandler
-
-# 1. Импорты сложных документов
-from .contract import (
-    CMRHandler, 
-    ContractHandler, 
-    PowerOfAttorneyHandler,
-    SupplyContractHandler, 
-    TaxpayerRegistrationCardHandler,
-    TrustedPassportPowerOfAttorneyHandler,
-)
 from .invoice import InvoiceHandler, TechnicalDocumentHandler
-from .protocol import ProtocolHandler
-
-# 2. Импорты простых документов (убедись, что эти файлы и классы созданы!)
-from .passport import PassportHandler
-from .export_license import ExportImportLicenseHandler
-from .lab_test_report import LabTestReportHandler
-from .veterinary_statement import VeterinaryStatementHandler
-from .declaration_conformity import DeclarationConformityHandler
-from .state_duty_payment import StateDutyPaymentHandler
-from .export_conclusion import ExportConclusionHandler
-from .phytosanitary import PhytosanitaryCertHandler
-from .min_justice_reg import MinJusticeRegCertHandler
-from .veterinary_cert import VeterinaryCertHandler
-from .other_documents import OtherDocumentsHandler
-from .other_information import OtherInformationHandler
-from .fallback import FallbackElseHandler
+from .regular.cmr import CMRHandler
+from .regular.contract import ContractHandler
+from .regular.declaration_conformity import DeclarationConformityHandler
+from .regular.export_conclusion import ExportConclusionHandler
+from .regular.export_license import ExportImportLicenseHandler
+from .regular.fallback import FallbackElseHandler
+from .regular.lab_test_report import LabTestReportHandler
+from .regular.min_justice_reg import MinJusticeRegCertHandler
+from .regular.other_documents import OtherDocumentsHandler
+from .regular.other_information import OtherInformationHandler
+from .regular.passport import PassportHandler
+from .regular.power_of_attorney import PowerOfAttorneyHandler
+from .regular.phytosanitary import PhytosanitaryCertHandler
+from .regular.protocol import ProtocolHandler
+from .regular.state_duty_payment import StateDutyPaymentHandler
+from .regular.supply_contract import SupplyContractHandler
+from .regular.taxpayer_registration_card import TaxpayerRegistrationCardHandler
+from .regular.trusted_passport_poa import TrustedPassportPowerOfAttorneyHandler
+from .regular.veterinary_cert import VeterinaryCertHandler
+from .regular.veterinary_statement import VeterinaryStatementHandler
 
 def _build_definition(handler: DocumentHandler) -> DocumentDefinition:
     return DocumentDefinition(
@@ -39,8 +33,7 @@ def _build_definition(handler: DocumentHandler) -> DocumentDefinition:
 
 _DOCUMENT_DEFINITIONS: dict[str, DocumentDefinition] = {}
 
-# 3. Добавляем ВСЕ классы в массив (их тут ровно 22)
-_all_handlers =[
+_ALL_HANDLERS = (
     InvoiceHandler(),
     ContractHandler(),
     SupplyContractHandler(),
@@ -50,8 +43,6 @@ _all_handlers =[
     TaxpayerRegistrationCardHandler(),
     TechnicalDocumentHandler(),
     ProtocolHandler(),
-    
-    # Простые документы
     PassportHandler(),
     ExportImportLicenseHandler(),
     LabTestReportHandler(),
@@ -65,10 +56,10 @@ _all_handlers =[
     OtherDocumentsHandler(),
     OtherInformationHandler(),
     FallbackElseHandler(),
-]
+)
 
-for h in _all_handlers:
-    _DOCUMENT_DEFINITIONS[h.document_code] = _build_definition(h)
+for handler in _ALL_HANDLERS:
+    _DOCUMENT_DEFINITIONS[handler.document_code] = _build_definition(handler)
 
 
 def get_document_definition(document_code: str) -> DocumentDefinition:
@@ -80,11 +71,22 @@ def get_document_definition(document_code: str) -> DocumentDefinition:
             f"Unsupported document_code '{document_code}'. Supported document codes: {supported}."
         ) from exc
 
+
 def get_document_handler(document_code: str) -> DocumentHandler:
     return get_document_definition(document_code).handler
+
 
 def list_supported_document_codes() -> list[str]:
     return list(_DOCUMENT_DEFINITIONS)
 
+
 def list_document_definitions() -> list[dict[str, object]]:
-    return[definition.to_dict() for definition in _DOCUMENT_DEFINITIONS.values()]
+    return [definition.to_dict() for definition in _DOCUMENT_DEFINITIONS.values()]
+
+
+__all__ = [
+    "get_document_definition",
+    "get_document_handler",
+    "list_document_definitions",
+    "list_supported_document_codes",
+]

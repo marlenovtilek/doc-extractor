@@ -10,16 +10,28 @@ It is designed to sit behind `docai` as a dedicated extraction backend:
 
 Pipeline:
 1. Clean noisy OCR
-2. Parse header/footer metadata
-3. Run primary model
-4. Validate / repair JSON
-5. Fallback to secondary model if needed
-6. Normalize, deduplicate, and finalize the extracted result
+2. Route the request to the matching document handler
+3. Run parser-first or model-assisted extraction, depending on the document type
+4. Validate / repair structured output
+5. Normalize, deduplicate, and finalize the extracted result
+6. Return a stateless payload for API clients or the built-in web UI
 
-Current registered handler:
-- `document_code = "04021"` -> `invoice`
+Current document coverage is defined in [`extractor/documents/registry.py`](./extractor/documents/registry.py) and includes:
+- `04021` -> Invoice
+- `09022` -> Technical Document
+- `03011` -> Contract
+- `00012` -> Supply Contract
+- `11019` -> Power of Attorney
+- `00002` -> CMR
+- `9012` -> Passport
+- `22222` -> Protocol
+- certificate / declaration / veterinary / phytosanitary / fallback-style handlers such as `11111`, `11116`, `01207`, `01201`, `11014`, `09999`, `10999`, and `ELSE`
 
-The service is structured for more handlers via `extractor/documents/*` and `extractor/documents/registry.py`.
+The invoice flow is the most specialized pipeline in the service. It supports:
+- OCR cleanup and table rehydration
+- parser-first extraction with selective line-level assist
+- deduplication / shadow-row pruning
+- review metadata for low-confidence rows
 
 ## API
 
@@ -92,14 +104,34 @@ Response:
   ],
   "count": 1,
   "metrics": {
-    "primary_valid": true,
-    "fallback_used": false
+    "execution_path": {
+      "mode": "parser_first"
+    }
   },
   "error": ""
 }
 ```
 
 If extraction fails, the endpoint returns `500` with an error detail.
+
+### `GET /api/meta/`
+
+Returns registered document definitions, available model aliases/families, provider readiness, and current defaults.
+
+### Web endpoints
+
+The built-in web UI is served from:
+- `GET /`
+
+Supporting web endpoints:
+- `GET /web/health/`
+- `GET /web/meta/`
+- `POST /web/extract/`
+- `POST /web/jobs/`
+- `GET /web/jobs/{job_id}/`
+- `POST /web/jobs/{job_id}/cancel/`
+
+`/api/*` endpoints can be protected with `DOC_EXTRACTOR_API_TOKEN`. `/web/*` endpoints stay open for the local operator UI.
 
 ## Supported Models
 
@@ -137,6 +169,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 Service:
 - `http://127.0.0.1:8000/api/health/`
 - `http://127.0.0.1:8000/api/extract/`
+- `http://127.0.0.1:8000/`
 
 ## Docker
 
@@ -150,8 +183,15 @@ docker compose up --build
 Required provider keys depend on the model you use.
 
 Main variables:
+- `DOC_EXTRACTOR_API_TOKEN`
 - `LLM_MODEL_PRIMARY`
 - `LLM_MODEL_FALLBACK`
+- `MODEL_AUTO_ROUTE`
+- `MODEL_AUTO_ROUTE_SMALL_DOC`
+- `MODEL_AUTO_ROUTE_LARGE_TABLE`
+- `MODEL_AUTO_ROUTE_OBJECT_DEFAULT`
+- `AUTO_ROUTE_CHAR_THRESHOLD`
+- `AUTO_ROUTE_PIPE_ROW_THRESHOLD`
 - `OPENAI_API_KEY`
 - `OPENAI_BASE_URL`
 - `OPENAI_ORGANIZATION`
@@ -170,12 +210,22 @@ Main variables:
 - `LLM_MAX_CHAR_BUFFER`
 - `LLM_MAX_WORKERS_GEMINI`
 - `LLM_MAX_WORKERS_OPENAI`
+- `WEB_JOB_MAX_WORKERS`
+- `WEB_JOB_RETENTION_S`
+- `WEB_JOB_MAX_STORED`
 - `CURRENCY_DB_JSON`
 
 ## Tests
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
+```
+
+Useful focused suites:
+
+```bash
+python -m unittest tests.test_invoice_handler tests.test_postprocess -v
+python -m unittest tests.test_job_service tests.test_fastapi -v
 ```
 
 ## Integration With docai
@@ -194,3 +244,9 @@ Recommended `docai` integration point:
 ```
 
 For table-style documents, map returned `data.items` or top-level `items` into `docai`'s save step.
+
+For invoice-style responses, `data` may also include review-oriented helpers such as:
+- `review_summary`
+- `top_review_items`
+
+These are intended for operator-facing UI flows and manual QA queues.

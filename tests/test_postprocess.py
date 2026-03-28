@@ -1,9 +1,10 @@
 import unittest
 
-from extractor.postprocess import (
+from extractor.legacy.postprocess import (
     deduplicate_items,
     extract_structured_pipe_items,
     filter_ocr_anomalies,
+    post_fill_from_header,
     sort_items_by_position,
 )
 
@@ -91,6 +92,17 @@ Currency: USD
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]["position"], 507115)
         self.assertEqual(filtered[0]["hs_code"], "85181090")
+
+    def test_post_fill_from_header_compat_wrapper_uses_current_signature(self):
+        items = [{"description": "Widget", "currency_code": None, "document_number": None}]
+
+        filled = post_fill_from_header(
+            items,
+            {"currency_code": "USD", "document_number": "INV-1"},
+        )
+
+        self.assertEqual(filled[0]["currency_code"], "USD")
+        self.assertEqual(filled[0]["document_number"], "INV-1")
 
     def test_deduplicate_items_uses_position_hs_quantity_price(self):
         items = [

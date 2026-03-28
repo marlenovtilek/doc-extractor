@@ -5,7 +5,7 @@ from extractor.documents.invoice import TechnicalDocumentHandler
 
 
 class TechnicalDocumentHandlerTests(unittest.TestCase):
-    @patch("extractor.documents.invoice.run_technical_document_extraction")
+    @patch("extractor.documents.invoice.invoice.run_technical_document_extraction")
     def test_technical_document_handler_returns_table_payload(
         self,
         mock_run_technical_document_extraction,
@@ -41,7 +41,7 @@ class TechnicalDocumentHandlerTests(unittest.TestCase):
         self.assertEqual(response["data"]["count"], 1)
         self.assertEqual(response["data"]["items"][0]["product_name"], "Pressure Sensor PS-200")
 
-    @patch("extractor.documents.invoice.run_technical_document_extraction")
+    @patch("extractor.documents.invoice.invoice.run_technical_document_extraction")
     def test_technical_document_handler_returns_empty_items_on_error(
         self,
         mock_run_technical_document_extraction,
