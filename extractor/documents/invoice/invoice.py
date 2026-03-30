@@ -24,7 +24,7 @@ from .invoice_parser_assessment import (
     _assess_structured_parser,
     _collect_line_level_repair_candidates,
 )
-from .invoice_pipeline import execute_invoice_extraction
+from .invoice_pipeline import execute_invoice_extraction, execute_invoice_structured_only_extraction
 from .invoice_postprocess import (
     deduplicate_items,
     filter_ocr_anomalies,
@@ -230,6 +230,23 @@ def run_invoice_extraction(ocr_draft: str, model_id: str | None = None) -> dict:
     )
 
 
+def run_invoice_structured_only_extraction(ocr_draft: str) -> dict:
+    metrics = RunMetrics()
+    return execute_invoice_structured_only_extraction(
+        ocr_draft=ocr_draft,
+        metrics=metrics,
+        load_currency_db=load_currency_db,
+        build_currency_db_string=build_currency_db_string,
+        clean_text=clean_text,
+        build_header_metadata=_build_header_metadata,
+        extract_structured_pipe_items=extract_structured_pipe_items,
+        normalize_invoice_items=normalize_invoice_items,
+        assess_structured_parser=_assess_structured_parser,
+        report_progress=report_progress,
+        ensure_not_cancelled=ensure_not_cancelled,
+    )
+
+
 class InvoiceHandler(DocumentHandler):
     document_code = "04021"
     label = "Invoice"
@@ -270,6 +287,46 @@ class InvoiceHandler(DocumentHandler):
         output = run_invoice_extraction(ocr_draft, model_id=model or None)
         metrics = output.get("metrics", {})
         model_id = output.get("model_id", "")
+
+        if "error" in output:
+            return {
+                "error": output["error"],
+                "metrics": metrics,
+                "model_id": model_id,
+                "result_type": self.result_type,
+                "data": {"fields": {}, "items": [], "count": 0},
+            }
+
+        result = output.get("result", {})
+        items = result.get("items", [])
+        return {
+            "metrics": metrics,
+            "model_id": model_id,
+            "result_type": self.result_type,
+            "data": {
+                "fields": _collect_invoice_fields(items),
+                "items": items,
+                "count": len(items),
+                "review_summary": _build_review_summary(items),
+                "top_review_items": _build_top_review_items(items),
+            },
+        }
+
+    def extract_timeout_fallback(
+        self,
+        *,
+        ocr_draft: str,
+        model: str | None = None,
+        error: Exception | None = None,
+    ) -> dict[str, Any]:
+        output = run_invoice_structured_only_extraction(ocr_draft)
+        metrics = dict(output.get("metrics", {}))
+        metrics["timeout_fallback"] = {
+            "used": True,
+            "source_model": model or "",
+            "reason": str(error or "Extraction timed out"),
+        }
+        model_id = output.get("model_id", "structured-parser")
 
         if "error" in output:
             return {

@@ -1,8 +1,15 @@
+import concurrent.futures
 import re
 from typing import Any
 
 from ..config.runtime import get_runtime_settings
-from ..context.execution import ensure_not_cancelled, report_progress
+from ..context.execution import (
+    clear_execution_hooks,
+    ensure_not_cancelled,
+    get_execution_hooks,
+    report_progress,
+    set_execution_hooks,
+)
 from ..documents.registry import get_document_definition
 from ..integrations.providers import ensure_model_spec_ready
 
@@ -151,6 +158,37 @@ def _build_response(
     }
 
 
+def _run_handler_extract_with_timeout(handler, *, ocr_draft: str, model: str) -> dict:
+    runtime = get_runtime_settings()
+    timeout_s = float(runtime.extraction_timeout_s)
+    if timeout_s <= 0:
+        return handler.extract(ocr_draft=ocr_draft, model=model)
+
+    progress_callback, cancel_check = get_execution_hooks()
+
+    def _invoke() -> dict:
+        set_execution_hooks(
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        )
+        try:
+            return handler.extract(ocr_draft=ocr_draft, model=model)
+        finally:
+            clear_execution_hooks()
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_invoke)
+    try:
+        return future.result(timeout=timeout_s)
+    except concurrent.futures.TimeoutError as exc:
+        future.cancel()
+        raise TimeoutError(
+            f"Extraction timed out after {timeout_s:g}s while running model '{model}'."
+        ) from exc
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+
 def execute_extraction_request(
     *,
     document_code: str,
@@ -171,7 +209,26 @@ def execute_extraction_request(
         f"Running {definition.label} with {selection_info['selected_model']}.",
     )
     ensure_not_cancelled()
-    output = handler.extract(ocr_draft=ocr_draft, model=selected_model)
+    try:
+        output = _run_handler_extract_with_timeout(
+            handler,
+            ocr_draft=ocr_draft,
+            model=selected_model,
+        )
+    except TimeoutError as exc:
+        timeout_fallback = getattr(handler, "extract_timeout_fallback", None)
+        if not callable(timeout_fallback):
+            raise
+        report_progress(
+            "timeout_fallback",
+            f"Primary extraction timed out; using local fallback for {definition.label}.",
+        )
+        ensure_not_cancelled()
+        output = timeout_fallback(
+            ocr_draft=ocr_draft,
+            model=selected_model,
+            error=exc,
+        )
     ensure_not_cancelled()
 
     metrics = dict(output.get("metrics", {}))

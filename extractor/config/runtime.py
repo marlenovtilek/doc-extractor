@@ -58,6 +58,7 @@ class RuntimeSettings:
     llm_max_char_buffer: int
     llm_max_workers_gemini: int
     llm_max_workers_openai: int
+    extraction_timeout_s: float
     web_job_max_workers: int
     web_job_retention_s: int
     web_job_max_stored: int
@@ -96,6 +97,7 @@ def get_runtime_settings() -> RuntimeSettings:
         llm_max_char_buffer=_env_int("LLM_MAX_CHAR_BUFFER", 5000),
         llm_max_workers_gemini=_env_int("LLM_MAX_WORKERS_GEMINI", 5),
         llm_max_workers_openai=_env_int("LLM_MAX_WORKERS_OPENAI", 5),
+        extraction_timeout_s=_env_float("EXTRACTION_TIMEOUT_S", 180.0),
         web_job_max_workers=_env_int("WEB_JOB_MAX_WORKERS", 2),
         web_job_retention_s=_env_int("WEB_JOB_RETENTION_S", 3600),
         web_job_max_stored=_env_int("WEB_JOB_MAX_STORED", 200),

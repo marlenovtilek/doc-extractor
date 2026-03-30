@@ -369,21 +369,12 @@ def _try_promote_positionless_companion(
 
 def _normalize_positioned_cells(cells: list[str]) -> tuple[list[str], int | None]:
     normalized_cells = list(cells)
-    if (
-        len(normalized_cells) >= 2
-        and not _has_explicit_pos_part_no_layout(normalized_cells)
-        and _is_marker_like_cell(normalized_cells[0])
-        and _is_article_like_cell(normalized_cells[1])
-    ):
-        normalized_article = _normalized_article_digits(normalized_cells[1])
-        normalized_cells = [normalized_article or normalized_cells[1], *normalized_cells[2:]]
-
-    normalized_article = _normalized_article_digits(normalized_cells[0])
-    if normalized_article is not None:
-        normalized_cells[0] = normalized_article
-        position_digits = normalized_article
-    else:
+    if _has_explicit_pos_part_no_layout(normalized_cells):
         position_digits = re.sub(r"\D", "", normalized_cells[0])
+    elif _is_marker_like_cell(normalized_cells[0]):
+        position_digits = re.sub(r"\D", "", normalized_cells[0])
+    else:
+        position_digits = ""
 
     if not position_digits:
         return normalized_cells, None

@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from extractor.documents.invoice import (
@@ -12,6 +13,7 @@ from extractor.documents.invoice import (
     run_invoice_extraction,
 )
 from extractor.documents.invoice.invoice import InvoiceHandler
+from extractor.documents.invoice.invoice import run_invoice_structured_only_extraction
 from extractor.documents.invoice.invoice_header import build_header_metadata
 from extractor.documents.invoice.invoice_postprocess import (
     _prune_shadow_rows,
@@ -23,6 +25,26 @@ from extractor.documents.invoice.invoice_postprocess_dedup import filter_ocr_ano
 
 
 class InvoiceParserFirstTests(unittest.TestCase):
+    def test_run_invoice_structured_only_extraction_handles_invoice_126_fixture(self):
+        fixture = Path(__file__).resolve().parent.parent / "invoice_126.txt"
+        self.assertTrue(fixture.exists())
+
+        result = run_invoice_structured_only_extraction(fixture.read_text(encoding="utf-8"))
+
+        positions = [int(item["position"]) for item in result["result"]["items"]]
+        self.assertEqual(result["result"]["count"], 126)
+        self.assertEqual(positions, list(range(1, 127)))
+
+    def test_run_invoice_structured_only_extraction_handles_invoice_217_fixture(self):
+        fixture = Path(__file__).resolve().parent.parent / "invoice_217.txt"
+        self.assertTrue(fixture.exists())
+
+        result = run_invoice_structured_only_extraction(fixture.read_text(encoding="utf-8"))
+
+        positions = [int(item["position"]) for item in result["result"]["items"]]
+        self.assertEqual(result["result"]["count"], 217)
+        self.assertEqual(positions, list(range(1, 218)))
+
     def test_deduplicate_items_keeps_rows_with_different_declaration_refs(self):
         items = [
             {
@@ -188,7 +210,8 @@ class InvoiceParserFirstTests(unittest.TestCase):
 
         self.assertEqual(len(items), 2)
         self.assertEqual(items[0]["position"], 984)
-        self.assertEqual(items[1]["position"], 1511)
+        self.assertIsNone(items[1]["position"])
+        self.assertEqual(items[1]["part_no"], "1511")
         self.assertEqual(items[1]["price"], 1100.0)
 
     def test_clean_text_expands_stacked_marker_html_rows(self):
@@ -365,7 +388,8 @@ class InvoiceParserFirstTests(unittest.TestCase):
         items = extract_structured_pipe_items(context)
 
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["position"], 4514)
+        self.assertIsNone(items[0]["position"])
+        self.assertEqual(items[0]["part_no"], "4514")
         self.assertEqual(items[0]["quantity"], 10.0)
         self.assertEqual(items[0]["cost"], 55.0)
         self.assertEqual(items[0]["price"], 550.0)
@@ -380,7 +404,8 @@ class InvoiceParserFirstTests(unittest.TestCase):
         items = extract_structured_pipe_items(context)
 
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["position"], 206980)
+        self.assertIsNone(items[0]["position"])
+        self.assertEqual(items[0]["part_no"], "206980")
         self.assertEqual(items[0]["quantity"], 6.0)
         self.assertEqual(items[0]["cost"], 209.0)
         self.assertEqual(items[0]["price"], 1254.0)
@@ -395,7 +420,8 @@ class InvoiceParserFirstTests(unittest.TestCase):
         items = extract_structured_pipe_items(context)
 
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["position"], 502577)
+        self.assertIsNone(items[0]["position"])
+        self.assertEqual(items[0]["part_no"], "502577")
         self.assertEqual(items[0]["quantity"], 9.0)
         self.assertEqual(items[0]["cost"], 55.0)
         self.assertEqual(items[0]["price"], 495.0)
@@ -768,7 +794,8 @@ class InvoiceParserFirstTests(unittest.TestCase):
         items = extract_structured_pipe_items(context)
 
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["position"], 509614)
+        self.assertIsNone(items[0]["position"])
+        self.assertEqual(items[0]["part_no"], "509614")
         self.assertEqual(items[0]["quantity"], 4.0)
         self.assertEqual(items[0]["cost"], 825.0)
         self.assertEqual(items[0]["price"], 3300.0)
@@ -1167,7 +1194,7 @@ class InvoiceParserFirstTests(unittest.TestCase):
             [],
             preserve_exact_line_duplicates=True,
         )
-        rows_986061 = [item for item in normalized if item["position"] == 986061]
+        rows_986061 = [item for item in normalized if item["position"] in {986061, 986062}]
         rows_9484616 = [item for item in normalized if item["position"] == 9484616]
 
         self.assertEqual(len(rows_986061), 2)
@@ -1399,7 +1426,7 @@ class InvoiceParserFirstTests(unittest.TestCase):
             preserve_exact_line_duplicates=True,
         )
 
-        rows_8688207 = [item for item in normalized if item["position"] == 8688207]
+        rows_8688207 = [item for item in normalized if item["position"] in {8688207, 8688208}]
         rows_8693268 = [item for item in normalized if item["position"] == 8693268]
         rows_9123867 = [item for item in normalized if item["position"] == 9123867]
         rows_30731377 = [item for item in normalized if item["position"] == 30731377]
@@ -2028,7 +2055,7 @@ class InvoiceParserFirstTests(unittest.TestCase):
         self.assertEqual(assist["repaired_items"], 1)
         self.assertTrue(assist["used"])
         self.assertEqual(assist["model_id"], "gemini-2.5-flash")
-        repaired = [item for item in result["result"]["items"] if item["position"] == 600001]
+        repaired = [item for item in result["result"]["items"] if item.get("description") == "Widget Pro"]
         self.assertEqual(len(repaired), 1)
 
     @patch("extractor.documents.invoice.invoice.run_line_level_llm_assist")

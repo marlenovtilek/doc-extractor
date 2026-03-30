@@ -328,14 +328,10 @@ def _extract_position_from_cells(cells: list[str]) -> int | None:
         if digits:
             return int(digits)
 
-    if len(work) >= 2 and _is_marker_like_cell(work[0]) and _is_article_like_cell(work[1]):
-        normalized_article = _normalized_article_digits(work[1])
-        if normalized_article is not None:
-            return int(normalized_article)
-
-    normalized_article = _normalized_article_digits(work[0])
-    if normalized_article is not None:
-        return int(normalized_article)
+    if _is_marker_like_cell(work[0]):
+        digits = re.sub(r"\D", "", work[0])
+        if digits:
+            return int(digits)
     return None
 
 

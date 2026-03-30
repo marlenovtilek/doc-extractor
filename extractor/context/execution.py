@@ -25,6 +25,13 @@ def clear_execution_hooks() -> None:
     _LOCAL.cancel_check = None
 
 
+def get_execution_hooks() -> tuple[Callable[[str, str], None] | None, Callable[[], bool] | None]:
+    return (
+        getattr(_LOCAL, "progress_callback", None),
+        getattr(_LOCAL, "cancel_check", None),
+    )
+
+
 def report_progress(stage: str, detail: str = "") -> None:
     callback = getattr(_LOCAL, "progress_callback", None)
     if callback is not None:

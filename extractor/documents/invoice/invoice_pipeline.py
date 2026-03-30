@@ -360,3 +360,63 @@ def execute_invoice_extraction(
         "model_id": effective_model,
         "raw_llm_output": raw_output,
     }
+
+
+def execute_invoice_structured_only_extraction(
+    *,
+    ocr_draft: str,
+    metrics: RunMetrics,
+    load_currency_db: Callable[[], list[dict]],
+    build_currency_db_string: Callable[[list[dict]], str],
+    clean_text: Callable[[str, str], str],
+    build_header_metadata: Callable[[str], tuple[str, dict]],
+    extract_structured_pipe_items: Callable[[str], list[dict]],
+    normalize_invoice_items: Callable[..., list[dict]],
+    assess_structured_parser: Callable[[str, list[dict]], dict],
+    report_progress: Callable[[str, str], None],
+    ensure_not_cancelled: Callable[[], None],
+) -> dict:
+    t_wall_start = time.perf_counter()
+    currency_db = load_currency_db()
+    currency_db_str = build_currency_db_string(currency_db)
+
+    report_progress("cleaning", "Preparing OCR text for parser-only invoice fallback.")
+    ensure_not_cancelled()
+    with timer() as t:
+        context = clean_text(ocr_draft, currency_db_str)
+    metrics.t_clean_s = t[0]
+
+    if not context:
+        metrics.t_total_s = round(time.perf_counter() - t_wall_start, 3)
+        return {
+            "error": "Empty OCR text",
+            "metrics": metrics.to_dict(),
+            "model_id": "structured-parser",
+        }
+
+    report_progress("parsing", "Running parser-only invoice fallback.")
+    ensure_not_cancelled()
+    (
+        _header_context,
+        _header_meta,
+        _structured_items,
+        parser_assessment,
+        _preserve_exact_line_duplicates,
+        structured_final_items,
+    ) = _prepare_structured_parser_result(
+        context=context,
+        currency_db=currency_db,
+        build_header_metadata=build_header_metadata,
+        extract_structured_pipe_items=extract_structured_pipe_items,
+        normalize_invoice_items=normalize_invoice_items,
+        assess_structured_parser=assess_structured_parser,
+    )
+    metrics.execution_path = {
+        "mode": "parser_timeout_fallback",
+        "structured_parser": parser_assessment,
+    }
+    return _build_parser_first_response(
+        items=structured_final_items,
+        metrics=metrics,
+        t_wall_start=t_wall_start,
+    )

@@ -29,6 +29,81 @@ _HEADER_FIELDS = (
 )
 
 
+def _normalize_position_value(value) -> int | None:
+    try:
+        position = int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+    if position is None or position <= 0:
+        return None
+    return position
+
+
+def _assign_display_positions(items: list[dict]) -> list[dict]:
+    if not items:
+        return items
+
+    explicit_positions = [
+        _normalize_position_value(item.get("position"))
+        for item in items
+    ]
+    explicit_positions = [position for position in explicit_positions if position is not None]
+    unique_positions = sorted(set(explicit_positions))
+
+    unstable_positions = len(items) >= 8 and (
+        not unique_positions
+        or max(unique_positions) > max(len(items) * 2, 500)
+        or len(unique_positions) < max(3, int(len(items) * 0.7))
+    )
+
+    if unstable_positions:
+        for index, item in enumerate(items, start=1):
+            item["position"] = index
+        return items
+
+    used_positions: set[int] = set()
+    next_position = 1
+    for item in items:
+        position = _normalize_position_value(item.get("position"))
+        if position is not None and position not in used_positions:
+            item["position"] = position
+            used_positions.add(position)
+            next_position = max(next_position, position + 1)
+            continue
+
+        while next_position in used_positions:
+            next_position += 1
+        item["position"] = next_position
+        used_positions.add(next_position)
+        next_position += 1
+
+    return items
+
+
+def _drop_positionless_residuals(items: list[dict]) -> list[dict]:
+    if not items:
+        return items
+
+    explicit_positions = [
+        _normalize_position_value(item.get("position"))
+        for item in items
+    ]
+    explicit_positions = [position for position in explicit_positions if position is not None]
+    if not explicit_positions:
+        return items
+
+    unique_positions = sorted(set(explicit_positions))
+    if not unique_positions:
+        return items
+
+    expected = list(range(1, unique_positions[-1] + 1))
+    positions_are_dense = unique_positions == expected
+    if not positions_are_dense:
+        return items
+
+    return [item for item in items if _normalize_position_value(item.get("position")) is not None]
+
+
 def post_fill_from_header(items: list[dict], header_meta: dict, currency_db: list[dict]) -> list[dict]:
     if not header_meta:
         return items
@@ -177,6 +252,8 @@ def normalize_invoice_items(
         normalized,
         preserve_exact_line_duplicates=preserve_exact_line_duplicates,
     )
+    normalized = _drop_positionless_residuals(normalized)
+    normalized = _assign_display_positions(normalized)
     if annotate_review:
         normalized = _annotate_item_quality(normalized)
     if strip_internal_fields:
@@ -196,6 +273,8 @@ def merge_normalized_invoice_items(
         merged,
         preserve_exact_line_duplicates=preserve_exact_line_duplicates,
     )
+    merged = _drop_positionless_residuals(merged)
+    merged = _assign_display_positions(merged)
     merged = _annotate_item_quality(merged)
     merged = _strip_internal_fields(merged)
     return sort_items_by_position(merged)

@@ -92,6 +92,7 @@ _EMBEDDED_CHAIN_HEAD_RE = re.compile(
     r"\|\s*(?P<pos>\d{1,3})\s*\|\s*(?P<part>\d{4,14})(?P<hint>[^\|]*)\s*$"
 )
 _ORDER_CHAIN_PREFIX_RE = re.compile(r"(?i)^\s*(?:Order date:[^|]*\||Please beware:\s*\|?)\s*")
+_POSITION_ARTICLE_PAIR_RE = re.compile(r"(?P<pos>\d{1,3})\s+(?P<part>[$\\]?\d[\d$\\.,]{3,14})")
 
 
 def _rehydrate_flattened_ocr_markdown(text: str) -> str:
@@ -167,6 +168,144 @@ def _expand_stacked_marker_pipe_rows(text: str) -> str:
             expanded_lines.append("| " + " | ".join(row_cells) + " |")
 
     return "\n".join(expanded_lines)
+
+
+def _normalize_stacked_article_token(value: str) -> str | None:
+    text = html.unescape(str(value or "").strip())
+    if not text:
+        return None
+
+    text = text.replace("\\$", "$")
+    text = re.sub(r"\s+", "", text)
+    digits = re.sub(r"\D", "", text)
+    if not digits:
+        return None
+
+    if "$" in text and digits.startswith("0"):
+        if len(digits) == 5:
+            digits = "5" + digits
+        elif len(digits) >= 6:
+            digits = "5" + digits[1:]
+
+    if len(digits) < 4 or len(digits) > 14:
+        return None
+    return digits
+
+
+def _extract_position_article_pairs(line: str) -> list[tuple[int, str]]:
+    pairs: list[tuple[int, str]] = []
+    for match in _POSITION_ARTICLE_PAIR_RE.finditer(html.unescape(str(line or ""))):
+        try:
+            position = int(match.group("pos"))
+        except ValueError:
+            continue
+        if not (0 < position <= 500):
+            continue
+        part_no = _normalize_stacked_article_token(match.group("part"))
+        if part_no is None:
+            continue
+        pairs.append((position, part_no))
+    return pairs
+
+
+def _looks_like_stacked_article_payload_block(cells: list[str]) -> bool:
+    if len(cells) < 8:
+        return False
+
+    article_tokens = [
+        _normalize_stacked_article_token(part)
+        for part in _BR_TAG_RE.split(cells[0])
+    ]
+    article_tokens = [part for part in article_tokens if part]
+    if len(article_tokens) < 2:
+        return False
+
+    if not any(_is_declaration_like_cell(cell) for cell in cells[1:]):
+        return False
+    if not any(_is_hs_like_cell(cell) for cell in cells[1:]):
+        return False
+    numeric_cells = sum(_parse_loose_number(cell) is not None for cell in cells[1:])
+    return numeric_cells >= 4
+
+
+def _split_pipe_blocks(line: str) -> list[list[str]]:
+    blocks: list[list[str]] = []
+    current: list[str] = []
+    for raw_cell in line.split("|"):
+        cell = str(raw_cell or "").strip()
+        if cell:
+            current.append(cell)
+            continue
+        if current:
+            blocks.append(current)
+            current = []
+    if current:
+        blocks.append(current)
+    return blocks
+
+
+def _expand_mapped_stacked_article_rows(text: str) -> str:
+    if not text:
+        return ""
+
+    rebuilt_lines: list[str] = []
+    pending_pairs: list[tuple[int, str]] = []
+    pending_pair_index = 0
+
+    for line in text.split("\n"):
+        pair_candidates = _extract_position_article_pairs(line)
+        if len(pair_candidates) >= 3 and any(
+            token in line.lower() for token in ("артикул", "part", "л/н", "no")
+        ):
+            pending_pairs = pair_candidates
+            pending_pair_index = 0
+            continue
+
+        if "<br" not in line.lower() or line.count("|") < 8:
+            rebuilt_lines.append(line)
+            continue
+
+        blocks = _split_pipe_blocks(line)
+        expanded_rows: list[str] = []
+        consumed_payload = False
+
+        for block in blocks:
+            if not _looks_like_stacked_article_payload_block(block):
+                continue
+
+            article_tokens = [
+                _normalize_stacked_article_token(part)
+                for part in _BR_TAG_RE.split(block[0])
+            ]
+            article_tokens = [part for part in article_tokens if part]
+            if not article_tokens:
+                continue
+
+            payload_cells = block[1:]
+            for part_no in article_tokens:
+                position = None
+                probe_index = pending_pair_index
+                while probe_index < len(pending_pairs):
+                    candidate_pos, candidate_part = pending_pairs[probe_index]
+                    if candidate_part == part_no:
+                        position = candidate_pos
+                        pending_pair_index = probe_index + 1
+                        break
+                    probe_index += 1
+
+                row_cells = [part_no, *payload_cells]
+                if position is not None:
+                    row_cells = [str(position), *row_cells]
+                expanded_rows.append("| " + " | ".join(row_cells) + " |")
+                consumed_payload = True
+
+        if consumed_payload and expanded_rows:
+            rebuilt_lines.extend(expanded_rows)
+            continue
+
+        rebuilt_lines.append(line)
+
+    return "\n".join(rebuilt_lines)
 
 
 def _table_cells(line: str) -> list[str]:
@@ -892,6 +1031,7 @@ def clean_text(raw_text: str, currency_db_str: str) -> str:
     text = _rehydrate_flattened_ocr_markdown(raw_text)
     text = _normalize_pipe_table(text)
     text = _expand_stacked_marker_pipe_rows(text)
+    text = _expand_mapped_stacked_article_rows(text)
     text = _strip_markup_noise(text)
     text = _normalize_pipe_table(text)
     text = re.sub(r"\n{3,}", "\n\n", text)

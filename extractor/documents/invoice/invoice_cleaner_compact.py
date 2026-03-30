@@ -39,6 +39,10 @@ def normalize_item_schema(
 
         cells = table_cells(line)
         if len(cells) >= 2 and looks_like_marker_cell(cells[0]) and looks_like_article_cell(cells[1]):
+            explicit_position = re.fullmatch(r"\d{1,3}", str(cells[0] or "").strip()) is not None
+            if explicit_position:
+                normalized.append(trim_item_line(line))
+                continue
             line = "| " + " | ".join(cells[1:]) + " |"
         normalized.append(trim_item_line(line))
 

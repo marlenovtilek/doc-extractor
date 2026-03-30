@@ -1,5 +1,6 @@
 import unittest
 import os
+import time
 from unittest.mock import Mock, patch
 
 from extractor.config.runtime import clear_runtime_settings_cache
@@ -10,6 +11,7 @@ from extractor.services.extraction import execute_extraction_request
 class ApiServiceTests(unittest.TestCase):
     def tearDown(self):
         clear_runtime_settings_cache()
+        os.environ.pop("EXTRACTION_TIMEOUT_S", None)
 
     @patch("extractor.services.extraction.get_document_definition")
     def test_execute_extraction_request_returns_flat_success_payload(self, mock_get_definition):
@@ -170,3 +172,80 @@ class ApiServiceTests(unittest.TestCase):
             response["metrics"]["model_selection"]["selected_model"],
             "gemini-flash",
         )
+
+    @patch.dict(os.environ, {"EXTRACTION_TIMEOUT_S": "0.01"}, clear=False)
+    @patch("extractor.services.extraction.get_document_definition")
+    def test_execute_extraction_request_times_out_stuck_handler(self, mock_get_definition):
+        clear_runtime_settings_cache()
+        mock_handler = Mock()
+        mock_handler.result_type = "table"
+        mock_handler.extract_timeout_fallback = None
+
+        def slow_extract(*, ocr_draft, model):
+            time.sleep(0.05)
+            return {
+                "data": {"fields": {}, "items": [], "count": 0},
+                "metrics": {"primary_valid": True},
+                "model_id": model,
+            }
+
+        mock_handler.extract.side_effect = slow_extract
+        mock_get_definition.return_value = DocumentDefinition(
+            document_code="04021",
+            label="Invoice",
+            handler=mock_handler,
+            schema=DocumentSchema(result_type="table"),
+        )
+
+        with self.assertRaises(TimeoutError) as exc:
+            execute_extraction_request(
+                document_code="04021",
+                ocr_draft="Invoice text",
+                model="cerebras",
+            )
+
+        self.assertIn("timed out", str(exc.exception).lower())
+
+    @patch.dict(os.environ, {"EXTRACTION_TIMEOUT_S": "0.01"}, clear=False)
+    @patch("extractor.services.extraction.get_document_definition")
+    def test_execute_extraction_request_uses_timeout_fallback_when_handler_supports_it(
+        self,
+        mock_get_definition,
+    ):
+        clear_runtime_settings_cache()
+
+        class TimeoutCapableHandler:
+            result_type = "table"
+
+            def extract(self, *, ocr_draft, model):
+                time.sleep(0.05)
+                return {
+                    "data": {"fields": {}, "items": [], "count": 0},
+                    "metrics": {"primary_valid": True},
+                    "model_id": model,
+                }
+
+            def extract_timeout_fallback(self, *, ocr_draft, model=None, error=None):
+                return {
+                    "data": {"fields": {"document_number": "INV-1"}, "items": [{"position": 1}], "count": 1},
+                    "metrics": {"execution_path": {"mode": "parser_timeout_fallback"}},
+                    "model_id": "structured-parser",
+                    "result_type": "table",
+                }
+
+        mock_get_definition.return_value = DocumentDefinition(
+            document_code="04021",
+            label="Invoice",
+            handler=TimeoutCapableHandler(),
+            schema=DocumentSchema(result_type="table"),
+        )
+
+        response = execute_extraction_request(
+            document_code="04021",
+            ocr_draft="Invoice text",
+            model="cerebras",
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["model_id"], "structured-parser")
+        self.assertEqual(response["count"], 1)
