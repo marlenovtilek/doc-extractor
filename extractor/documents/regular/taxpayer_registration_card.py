@@ -3,7 +3,7 @@ from __future__ import annotations
 import langextract as lx
 
 from ..base import DocumentFieldSchema, DocumentSchema
-from ..object_core import ConfiguredObjectHandler, TRACKED_SIMPLE_DOCUMENT_FIELDS
+from ..object_core import ConfiguredObjectHandler
 
 STI025_EXTRACTION_PROMPT = """
 # ROLE
@@ -44,18 +44,17 @@ STI025_EXAMPLES = [
         ],
     ),
 ]
+
+
 class TaxpayerRegistrationCardHandler(ConfiguredObjectHandler):
     document_code = "000004"
     label = "Taxpayer Registration Card STI-025"
-    prompt = STI025_EXTRACTION_PROMPT
-    examples = tuple(STI025_EXAMPLES)
-    tracked_fields = TRACKED_SIMPLE_DOCUMENT_FIELDS
-    empty_error = "No STI-025 fields extracted"
+    desc_instruction = "Карточка регистрации налогоплательщика формы STI-025 (кратко)."
 
     schema = DocumentSchema(
         result_type="object",
         fields=(
-            DocumentFieldSchema("document_number", "Document Number"),
+            DocumentFieldSchema("document_number", "INN / Document Number"),
             DocumentFieldSchema("document_date", "Document Date"),
             DocumentFieldSchema("description", "Description"),
         ),

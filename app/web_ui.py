@@ -1,1366 +1,319 @@
-from __future__ import annotations
-
-
-def render_home_page() -> str:
-    return """<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>doc-extractor</title>
-    <style>
-      :root {
-        --bg: #f4f0e8;
-        --panel: #fffdf8;
-        --ink: #1c1a16;
-        --muted: #6d6458;
-        --line: #d9cfbf;
-        --accent: #945b2d;
-        --accent-2: #e6d6bf;
-        --success: #2f6b40;
-        --error: #9d2f2f;
-        --shadow: 0 18px 40px rgba(37, 26, 15, 0.08);
-      }
-
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-        color: var(--ink);
-        background:
-          radial-gradient(circle at top left, rgba(230, 214, 191, 0.8), transparent 26%),
-          linear-gradient(180deg, #f8f3ea 0%, var(--bg) 100%);
-      }
-
-      .page {
-        max-width: 1460px;
-        margin: 0 auto;
-        padding: 14px;
-      }
-
-      .workspace-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1.7fr) minmax(360px, 1fr);
-        gap: 10px;
-        margin-bottom: 10px;
-        align-items: start;
-      }
-
-      .stack {
-        display: grid;
-        gap: 10px;
-        align-content: start;
-      }
-
-      .hero-card,
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        box-shadow: var(--shadow);
-      }
-
-      .hero-card {
-        padding: 16px 18px;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .hero-card::after {
-        content: "";
-        position: absolute;
-        inset: auto -40px -60px auto;
-        width: 220px;
-        height: 220px;
-        background: radial-gradient(circle, rgba(148, 91, 45, 0.16), transparent 70%);
-        pointer-events: none;
-      }
-
-      .eyebrow {
-        color: var(--accent);
-        font-size: 10px;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-      }
-
-      h1 {
-        margin: 0 0 6px;
-        font-size: clamp(24px, 2.8vw, 34px);
-        line-height: 1;
-        letter-spacing: -0.04em;
-        white-space: nowrap;
-      }
-
-      .lead {
-        margin: 0;
-        max-width: 64ch;
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.35;
-      }
-
-      .hero-top {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 6px;
-        position: relative;
-        z-index: 1;
-      }
-
-      .hero-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
-      .hero-copy {
-        max-width: 640px;
-      }
-
-      .runtime-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 10px;
-        position: relative;
-        z-index: 1;
-      }
-
-      .runtime-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 5px 9px;
-        border-radius: 999px;
-        background: #faf6ef;
-        border: 1px solid #eee3d3;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .runtime-chip strong {
-        color: var(--ink);
-      }
-
-      .connections-panel {
-        margin-bottom: 0;
-      }
-
-      .provider-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 6px;
-      }
-
-      .provider-card {
-        flex: 1 1 220px;
-        min-width: 0;
-        padding: 8px 10px;
-        border-radius: 12px;
-        background: #fbf8f2;
-        border: 1px solid #eee3d3;
-      }
-
-      .provider-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 4px;
-      }
-
-      .provider-name {
-        font-size: 12px;
-        font-weight: 600;
-      }
-
-      .provider-status {
-        display: inline-flex;
-        align-items: center;
-        padding: 3px 7px;
-        border-radius: 999px;
-        font-size: 10px;
-        border: 1px solid #eee3d3;
-        background: #f5ecdf;
-        color: var(--accent);
-      }
-
-      .provider-status.ready {
-        color: var(--success);
-        background: #eef7f0;
-        border-color: #d5e7d9;
-      }
-
-      .provider-status.missing {
-        color: var(--error);
-        background: #fbefef;
-        border-color: #ecd3d3;
-      }
-
-      .provider-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px 10px;
-        font-size: 10px;
-        color: var(--muted);
-      }
-
-      .provider-detail {
-        margin-top: 6px;
-        padding-top: 6px;
-        border-top: 1px dashed #e8dcc8;
-        font-size: 10px;
-        color: var(--muted);
-        min-height: 0;
-      }
-
-      .panel {
-        padding: 12px;
-      }
-
-      .summary-panel {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .form-grid {
-        display: grid;
-        gap: 8px;
-      }
-
-      .toolbar-row {
-        display: grid;
-        grid-template-columns:
-          minmax(170px, 210px)
-          minmax(150px, 180px)
-          minmax(210px, 260px)
-          minmax(0, 1fr);
-        gap: 8px;
-        align-items: end;
-      }
-
-      .toolbar-actions {
-        display: flex;
-        justify-content: flex-end;
-      }
-
-      label {
-        display: block;
-        font-size: 11px;
-        color: var(--muted);
-        margin-bottom: 5px;
-      }
-
-      input,
-      select,
-      textarea,
-      button {
-        font: inherit;
-      }
-
-      input[type="text"],
-      select,
-      textarea {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        color: var(--ink);
-        padding: 9px 11px;
-      }
-
-      textarea {
-        min-height: 190px;
-        resize: vertical;
-        line-height: 1.35;
-      }
-
-      .button-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: flex-end;
-        min-height: 40px;
-      }
-
-      .button-row button {
-        white-space: nowrap;
-      }
-
-      button {
-        border: 0;
-        border-radius: 999px;
-        padding: 8px 12px;
-        cursor: pointer;
-        transition: transform 0.14s ease, opacity 0.14s ease;
-      }
-
-      button:hover { transform: translateY(-1px); }
-      button:disabled { opacity: 0.6; cursor: wait; transform: none; }
-
-      .primary {
-        background: var(--accent);
-        color: #fff;
-      }
-
-      .secondary {
-        background: var(--accent-2);
-        color: var(--ink);
-      }
-
-      .ghost-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 32px;
-        padding: 7px 12px;
-        border-radius: 999px;
-        border: 1px solid #e7dac7;
-        background: #fbf7f0;
-        color: var(--ink);
-        text-decoration: none;
-        font-size: 12px;
-        transition: transform 0.14s ease, background 0.14s ease;
-      }
-
-      .ghost-link:hover {
-        transform: translateY(-1px);
-        background: #f6efe4;
-      }
-
-      .alert {
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid #ecd3d3;
-        background: #fbefef;
-        color: var(--error);
-        font-size: 12px;
-        line-height: 1.4;
-      }
-
-      .alert strong {
-        display: block;
-        margin-bottom: 3px;
-      }
-
-      .results-grid {
-        display: grid;
-        gap: 10px;
-      }
-
-      .results-top-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-        gap: 10px;
-        align-items: start;
-      }
-
-      .aux-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 10px;
-      }
-
-      .section-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 12px;
-        margin-bottom: 8px;
-      }
-
-      .section-head h2,
-      .section-head h3 {
-        margin: 0;
-        font-size: 15px;
-      }
-
-      .mono {
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-        font-size: 11px;
-      }
-
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 8px;
-        border-radius: 999px;
-        background: #f5ecdf;
-        color: var(--accent);
-        font-size: 10px;
-      }
-
-      .cards {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 6px;
-      }
-
-      .summary-panel .cards {
-        flex: 1;
-        align-content: stretch;
-      }
-
-      .selection-note {
-        margin-top: 8px;
-        padding: 8px 10px;
-        border-radius: 12px;
-        background: #fbf8f2;
-        border: 1px solid #eee3d3;
-        font-size: 11px;
-        color: var(--muted);
-        line-height: 1.35;
-      }
-
-      .selection-note strong {
-        color: var(--ink);
-      }
-
-      .card {
-        padding: 8px 9px;
-        border-radius: 12px;
-        background: #fbf8f2;
-        border: 1px solid #eee3d3;
-      }
-
-      .summary-panel .card {
-        min-height: 52px;
-      }
-
-      .card-label {
-        color: var(--muted);
-        font-size: 10px;
-        margin-bottom: 3px;
-      }
-
-      .card-value {
-        font-size: 22px;
-        letter-spacing: -0.04em;
-      }
-
-      .summary-panel .card-label {
-        font-size: 11px;
-      }
-
-      .summary-panel .card-value {
-        font-size: 13px;
-        line-height: 1.15;
-        letter-spacing: -0.02em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      .kv {
-        display: grid;
-        gap: 5px;
-      }
-
-      .kv-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 7px 9px;
-        border-radius: 12px;
-        background: #fbf8f2;
-        border: 1px solid #eee3d3;
-      }
-
-      .review-panel {
-        display: grid;
-        gap: 10px;
-      }
-
-      .review-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .review-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        border: 1px solid #eee3d3;
-        background: #fbf8f2;
-        color: var(--muted);
-        font-size: 11px;
-      }
-
-      .review-chip strong {
-        color: var(--ink);
-      }
-
-      .review-chip.high {
-        background: #fbefef;
-        border-color: #ecd3d3;
-        color: var(--error);
-      }
-
-      .review-chip.medium {
-        background: #f8f2e8;
-        border-color: #e7dac7;
-        color: var(--accent);
-      }
-
-      .review-list {
-        display: grid;
-        gap: 8px;
-      }
-
-      .review-item {
-        padding: 10px 11px;
-        border-radius: 12px;
-        border: 1px solid #eee3d3;
-        background: #fbf8f2;
-        cursor: pointer;
-        transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
-      }
-
-      .review-item:hover {
-        transform: translateY(-1px);
-        border-color: #dcc8ae;
-        background: #fffaf2;
-      }
-
-      .review-item-top {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        align-items: flex-start;
-        margin-bottom: 6px;
-      }
-
-      .review-item-title {
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.3;
-      }
-
-      .review-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 3px 7px;
-        border-radius: 999px;
-        font-size: 10px;
-        border: 1px solid #eee3d3;
-        white-space: nowrap;
-      }
-
-      .review-badge.high {
-        color: var(--error);
-        background: #fbefef;
-        border-color: #ecd3d3;
-      }
-
-      .review-badge.medium {
-        color: var(--accent);
-        background: #f8f2e8;
-        border-color: #e7dac7;
-      }
-
-      .review-item-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px 10px;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .table-wrap {
-        overflow: auto;
-        border: 1px solid #eee3d3;
-        border-radius: 14px;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 840px;
-        background: #fff;
-      }
-
-      th, td {
-        padding: 7px 9px;
-        border-bottom: 1px solid #f0e7da;
-        text-align: left;
-        vertical-align: top;
-        font-size: 11px;
-      }
-
-      tr.row-review-high td {
-        background: #fff4f4;
-      }
-
-      tr.row-review-medium td {
-        background: #fff9ef;
-      }
-
-      tr.row-focused td {
-        box-shadow: inset 0 0 0 9999px rgba(148, 91, 45, 0.12);
-      }
-
-      th {
-        position: sticky;
-        top: 0;
-        background: #f8f2e8;
-        z-index: 1;
-      }
-
-      pre {
-        margin: 0;
-        padding: 10px;
-        border-radius: 14px;
-        background: #151311;
-        color: #f7f1e8;
-        overflow: auto;
-        max-height: 220px;
-      }
-
-      .muted { color: var(--muted); }
-      .ok { color: var(--success); }
-      .bad { color: var(--error); }
-      .hidden { display: none; }
-
-      @media (max-width: 1100px) {
-        .workspace-grid,
-        .aux-grid,
-        .results-top-grid {
-          grid-template-columns: 1fr;
-        }
-        .cards {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-        .toolbar-row {
-          grid-template-columns: 1fr 1fr;
-        }
-        .toolbar-row .toolbar-actions {
-          grid-column: 1 / -1;
-          justify-content: flex-start;
-        }
-        h1 {
-          white-space: normal;
-        }
-      }
-
-      @media (max-width: 720px) {
-        .page { padding: 12px; }
-        .toolbar-row,
-        .cards {
-          grid-template-columns: 1fr;
-        }
-        .hero-top {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        .hero-actions {
-          justify-content: flex-start;
-        }
-        textarea { min-height: 180px; }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="page">
-      <section class="workspace-grid">
-        <div class="stack">
-          <div class="hero-card">
-            <div class="hero-top">
-              <div class="hero-copy">
-                <div class="eyebrow">doc-extractor</div>
-                <h1>Doc-Extractor</h1>
-                <p class="lead">
-                  Paste OCR text, pick a document handler and model, then inspect the extracted
-                  fields, rows, metrics, and raw JSON in one place.
-                </p>
-              </div>
-              <div class="hero-actions">
-                <a class="ghost-link mono" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
-                <span id="health-pill" class="pill mono">Loading...</span>
-              </div>
-            </div>
-            <div id="runtime-strip" class="runtime-strip"></div>
-          </div>
-          <div class="panel">
-            <div class="section-head">
-              <h2>Run Extraction</h2>
-              <span class="muted mono">POST /api/extract/</span>
-            </div>
-            <form id="extract-form" class="form-grid">
-              <div class="toolbar-row">
-                <div>
-                  <label for="document_code">Document Code</label>
-                  <select id="document_code" name="document_code"></select>
+import json
+from fastapi.responses import HTMLResponse
+from extractor.config.runtime import get_runtime_settings
+from extractor.documents.registry import list_document_definitions
+from extractor.integrations.providers import list_model_families, build_model_spec, resolve_model_target
+
+def render_home_page():
+    # Получаем данные
+    doc_definitions = list_document_definitions()
+    model_families = list_model_families()
+    runtime = get_runtime_settings()
+
+    try:
+        default_target = resolve_model_target(runtime.llm_model_primary)
+        default_provider = default_target.provider
+        default_model_value = build_model_spec(default_target.provider, default_target.model_id)
+    except Exception:
+        first_family = next((family for family in model_families if family.get("models")), {})
+        default_provider = first_family.get("provider", "")
+        default_model_value = (
+            first_family.get("models", [{}])[0].get("value", "")
+            if first_family.get("models")
+            else ""
+        )
+
+    # Сериализуем
+    docs_json = json.dumps(doc_definitions, ensure_ascii=False)
+    families_json = json.dumps(model_families, ensure_ascii=False)
+    default_provider_json = json.dumps(default_provider, ensure_ascii=False)
+    default_model_json = json.dumps(default_model_value, ensure_ascii=False)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Doc Extractor Pro</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            .loader {{ border-top-color: #3498db; animation: spinner 1.5s linear infinite; }}
+            @keyframes spinner {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+        </style>
+    </head>
+    <body class="bg-gray-50 font-sans">
+        <div class="min-h-screen">
+            <nav class="bg-white shadow-sm border-b p-4">
+                <div class="max-w-7xl mx-auto">
+                    <h1 class="text-2xl font-bold text-gray-800">🤖 Doc Extractor <span class="text-blue-600">Pro</span></h1>
                 </div>
-                <div>
-                  <label for="model_family">Model Family</label>
-                  <select id="model_family" name="model_family"></select>
-                </div>
-                <div>
-                  <label for="model">Model</label>
-                  <select id="model" name="model"></select>
-                </div>
-                <div class="toolbar-actions">
-                  <div class="button-row">
-                    <button id="submit-button" class="primary" type="submit">Run Extraction</button>
-                    <button id="cancel-button" class="secondary" type="button" disabled>Cancel</button>
-                    <button id="clear-button" class="secondary" type="button">Clear</button>
-                  </div>
-                </div>
-              </div>
+            </nav>
 
-              <div id="error-banner" class="alert hidden">
-                <strong>Extraction failed</strong>
-                <span id="error-message">Unknown error.</span>
-              </div>
+            <main class="max-w-7xl mx-auto px-4 py-8">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="bg-white p-4 rounded-xl shadow-sm border">
+                            <h2 class="text-base font-semibold mb-3 text-gray-700">⚙️ Настройки</h2>
+                            
+                            <label class="block mb-1.5 text-sm font-medium">Тип документа</label>
+                            <select id="doc_code" class="w-full p-2 border rounded-lg mb-3"></select>
 
-              <div>
-                <label for="ocr_draft">OCR Draft</label>
-                <textarea
-                  id="ocr_draft"
-                  name="ocr_draft"
-                  spellcheck="false"
-                  placeholder="Paste raw OCR text here..."
-                ></textarea>
-              </div>
-            </form>
-          </div>
+                            <label class="block mb-1.5 text-sm font-medium">Провайдер</label>
+                            <select id="provider" class="w-full p-2 border rounded-lg mb-3" onchange="handleProviderChange()"></select>
+
+                            <label class="block mb-1.5 text-sm font-medium">Модель</label>
+                            <select id="model_id" class="w-full p-2 border rounded-lg mb-3" onchange="handleModelChange()"></select>
+                            
+                            <label class="block mb-1.5 text-xs font-medium text-gray-400">Custom model string</label>
+                            <input type="text" id="custom_model" placeholder="provider::model_id" class="w-full p-2 border rounded-lg text-sm">
+                            <p class="mt-2 text-xs text-gray-400">Если поле заполнено, будет использована именно эта модель вместо выбора из списков.</p>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-xl shadow-sm border">
+                            <textarea id="ocr_draft" rows="10" class="w-full p-2.5 bg-gray-50 border rounded-lg text-sm" placeholder="OCR текст..."></textarea>
+                            <button onclick="startExtraction()" id="btn_run" class="w-full mt-3 bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 text-sm">
+                                ЗАПУСТИТЬ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div id="result_area" class="bg-white p-4 rounded-xl shadow-sm border min-h-[420px]">
+                            <div id="placeholder" class="text-center py-28 text-gray-400 text-sm">Результаты появятся здесь</div>
+                            <div id="loading" class="hidden text-center py-28">
+                                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
+                                <p>Обработка...</p>
+                            </div>
+                            <div id="success_content" class="hidden">
+                                <div class="flex justify-between mb-2 text-sm">
+                                    <span id="stat_count" class="font-bold"></span>
+                                    <span id="stat_time" class="text-gray-500"></span>
+                                </div>
+                                <div class="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                                    <span id="stat_model"></span>
+                                    <span id="stat_route"></span>
+                                </div>
+                                <div id="fields_panel" class="hidden mb-3">
+                                    <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Header</div>
+                                    <div class="overflow-auto border rounded-lg">
+                                        <table class="min-w-full text-xs text-left border-collapse">
+                                            <thead class="bg-gray-100">
+                                                <tr id="fields_header_row"></tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr id="fields_value_row"></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div id="json_panel" class="hidden mb-3">
+                                    <pre id="json_payload" class="overflow-auto max-h-[60vh] rounded-lg border bg-gray-50 p-3 text-xs text-gray-700"></pre>
+                                </div>
+                                <div id="table_wrapper" class="hidden">
+                                    <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</div>
+                                    <div class="mb-2 text-xs text-gray-400">Таблица прокручивается по горизонтали, если колонок много.</div>
+                                    <div class="overflow-auto max-h-[70vh] border rounded-lg">
+                                        <table class="min-w-full w-max text-xs text-left border-collapse">
+                                            <thead class="bg-gray-100 sticky top-0 z-10">
+                                                <tr id="table_header_row"></tr>
+                                            </thead>
+                                            <tbody id="table_body"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
-        <div class="stack">
-          <div class="panel connections-panel">
-            <div class="section-head">
-              <h2>Model Connections</h2>
-              <span class="muted mono">provider readiness</span>
-            </div>
-            <div id="provider-grid" class="provider-grid"></div>
-          </div>
-          <div class="panel summary-panel">
-            <div class="section-head">
-              <h2>Summary</h2>
-              <span id="result-pill" class="pill mono">No result yet</span>
-            </div>
-            <div id="summary-cards" class="cards">
-              <div class="card"><div class="card-label">Document</div><div id="summary-document" class="card-value">-</div></div>
-              <div class="card"><div class="card-label">Model</div><div id="summary-model" class="card-value">-</div></div>
-              <div class="card"><div class="card-label">Rows</div><div id="summary-count" class="card-value">0</div></div>
-              <div class="card"><div class="card-label">Tokens</div><div id="summary-tokens" class="card-value">-</div></div>
-              <div class="card"><div class="card-label">Duration</div><div id="summary-duration" class="card-value">-</div></div>
-              <div class="card"><div class="card-label">Fallback</div><div id="summary-fallback" class="card-value">-</div></div>
-            </div>
-            <div id="summary-selection" class="selection-note">
-              <strong>Model Route:</strong> pending
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section>
-        <div class="results-grid">
-          <div class="results-top-grid">
-            <div class="panel">
-              <div class="section-head">
-                <h3>Fields</h3>
-                <span class="muted mono">result.data.fields</span>
-              </div>
-              <div id="fields-view" class="kv muted">No extracted fields yet.</div>
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="section-head">
-              <h3>Items</h3>
-              <span id="items-meta" class="muted mono">0 rows</span>
-            </div>
-            <div id="items-view" class="table-wrap hidden"></div>
-            <div id="items-empty" class="muted">No extracted rows yet.</div>
-          </div>
-
-          <div class="aux-grid">
-            <div class="panel">
-              <div class="section-head">
-                <h3>Metrics</h3>
-                <span class="muted mono">result.metrics</span>
-              </div>
-              <pre id="metrics-view">{}</pre>
-            </div>
-
-            <div class="panel">
-              <div class="section-head">
-                <h3>Raw Response</h3>
-                <span class="muted mono">JSON</span>
-              </div>
-              <pre id="raw-view">{}</pre>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <script>
-      let metaState = null;
-      let activeJobId = null;
-      let activeJobPoll = null;
-      const documentSelect = document.getElementById("document_code");
-      const modelFamilySelect = document.getElementById("model_family");
-      const modelSelect = document.getElementById("model");
-      const ocrDraftInput = document.getElementById("ocr_draft");
-      const submitButton = document.getElementById("submit-button");
-      const cancelButton = document.getElementById("cancel-button");
-      const clearButton = document.getElementById("clear-button");
-      const healthPill = document.getElementById("health-pill");
-      const resultPill = document.getElementById("result-pill");
-      const errorBanner = document.getElementById("error-banner");
-      const errorMessage = document.getElementById("error-message");
-      const runtimeStrip = document.getElementById("runtime-strip");
-      const providerGrid = document.getElementById("provider-grid");
-      const fieldsView = document.getElementById("fields-view");
-      const itemsView = document.getElementById("items-view");
-      const itemsEmpty = document.getElementById("items-empty");
-      const itemsMeta = document.getElementById("items-meta");
-      const metricsView = document.getElementById("metrics-view");
-      const rawView = document.getElementById("raw-view");
-      const summarySelection = document.getElementById("summary-selection");
-
-      function getConfiguredFamilyModels(meta, family) {
-        const selectedFamily = (meta.model_families || []).find((item) => item.provider === family);
-        if (!selectedFamily) {
-          return [];
-        }
-        return (selectedFamily.models || []).filter((item) => item.configured);
-      }
-
-      function setJson(target, value) {
-        target.textContent = JSON.stringify(value, null, 2);
-      }
-
-      function escapeHtml(value) {
-        return String(value ?? "")
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
-      }
-
-      function stopPollingJob() {
-        if (activeJobPoll) {
-          clearTimeout(activeJobPoll);
-          activeJobPoll = null;
-        }
-        activeJobId = null;
-      }
-
-      function setJobControls(isActive, isCancelling = false) {
-        submitButton.disabled = isActive;
-        cancelButton.disabled = !isActive || isCancelling;
-        clearButton.disabled = isActive;
-      }
-
-      async function readJsonResponse(response) {
-        const text = await response.text();
-        if (!text) {
-          return {};
-        }
-        try {
-          return JSON.parse(text);
-        } catch {
-          return { detail: text };
-        }
-      }
-
-      function humanizeError(message) {
-        const text = String(message || "").trim();
-        const lower = text.toLowerCase();
-
-        if (
-          lower.includes("insufficient_quota") ||
-          lower.includes("you exceeded your current quota")
-        ) {
-          return "OpenAI quota exceeded. Check billing or switch to another model/provider.";
-        }
-
-        if (
-          lower.includes("token_quota_exceeded") ||
-          lower.includes("tokens per day limit exceeded")
-        ) {
-          return "Cerebras daily token quota exceeded. Wait for reset or switch to another provider.";
-        }
-
-        if (lower.includes("queue_exceeded") || lower.includes("high traffic")) {
-          return "Provider is overloaded right now. Retry shortly or switch to another model.";
-        }
-
-        if (lower.includes("not configured") || lower.includes("missing_config")) {
-          return "Selected provider is not configured in .env.";
-        }
-
-        if (lower.includes("unsupported model spec")) {
-          return "Selected model is not supported by this service configuration.";
-        }
-
-        if (lower.includes("unsupported document_code")) {
-          return "This document type is not supported by the current extractor.";
-        }
-
-        if (lower.includes("empty ocr text")) {
-          return "OCR Draft is empty. Paste OCR text before running extraction.";
-        }
-
-        if (lower.includes("no valid items extracted")) {
-          return "The model returned no valid rows for this OCR. Try another provider or cleaner OCR text.";
-        }
-
-        return text || "Extraction failed.";
-      }
-
-      function showError(message) {
-        errorMessage.textContent = humanizeError(message);
-        errorBanner.classList.remove("hidden");
-      }
-
-      function hideError() {
-        errorMessage.textContent = "Unknown error.";
-        errorBanner.classList.add("hidden");
-      }
-
-      function renderRuntimeStrip(health) {
-        const rows = [
-          ["Service", health.status || "-"],
-          ["Provider", health.llm_api?.provider || "-"],
-          ["Model", health.llm_api?.model || "-"],
-          ["Storage", health.database?.status || "-"],
-        ];
-
-        runtimeStrip.innerHTML = rows
-          .map(([label, value]) => `
-            <div class="runtime-chip">
-              <span>${escapeHtml(label)}</span>
-              <strong class="mono">${escapeHtml(value)}</strong>
-            </div>
-          `)
-          .join("");
-      }
-
-      function renderProviderGrid(meta) {
-        const providers = Object.values(meta.providers || {});
-        providerGrid.innerHTML = providers
-          .map((provider) => {
-            const statusClass = provider.configured ? "ready" : "missing";
-            const statusLabel = provider.configured ? "ready" : "not configured";
-            const detail = provider.configured ? "Configured and ready to use." : "Not configured";
-            return `
-              <div class="provider-card">
-                <div class="provider-top">
-                  <div class="provider-name">${escapeHtml(provider.label)}</div>
-                  <span class="provider-status ${statusClass}">${escapeHtml(statusLabel)}</span>
-                </div>
-                <div class="provider-meta">
-                  <div><span class="muted">Type</span> · <strong>${escapeHtml(provider.kind)}</strong></div>
-                  <div><span class="muted">Default</span> · <strong class="mono">${escapeHtml(provider.default_model_id)}</strong></div>
-                </div>
-                <div class="provider-detail">${escapeHtml(detail)}</div>
-              </div>
-            `;
-          })
-          .join("");
-      }
-
-      function renderFields(fields) {
-        const entries = Object.entries(fields || {}).filter(([, value]) => value !== null && value !== "");
-        if (!entries.length) {
-          fieldsView.className = "kv muted";
-          fieldsView.textContent = "No extracted fields.";
-          return;
-        }
-
-        fieldsView.className = "kv";
-        fieldsView.innerHTML = entries
-          .map(([key, value]) => `
-            <div class="kv-row">
-              <span class="muted">${escapeHtml(key)}</span>
-              <strong class="mono">${escapeHtml(value)}</strong>
-            </div>
-          `)
-          .join("");
-      }
-
-      function renderItems(items) {
-        const rows = Array.isArray(items) ? items : [];
-        itemsMeta.textContent = `${rows.length} rows`;
-
-        if (!rows.length) {
-          itemsView.classList.add("hidden");
-          itemsEmpty.classList.remove("hidden");
-          itemsView.innerHTML = "";
-          return;
-        }
-
-        const columns = Array.from(
-          rows.reduce((set, row) => {
-            Object.keys(row || {}).forEach((key) => set.add(key));
-            return set;
-          }, new Set())
-        );
-
-        const thead = `<thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead>`;
-        const tbody = rows
-          .map(
-            (row) => {
-              const priority = String(row?.review_priority || "").toLowerCase();
-              const position = row?.position ?? "";
-              const rowClass =
-                row?.review_required && priority === "high"
-                  ? "row-review-high"
-                  : row?.review_required && priority === "medium"
-                    ? "row-review-medium"
-                    : "";
-              return `
-              <tr class="${rowClass}" data-position="${position}">
-                ${columns
-                  .map((column) => `<td>${escapeHtml(row?.[column] ?? "")}</td>`)
-                  .join("")}
-              </tr>
-            `;
-            }
-          )
-          .join("");
-
-        itemsView.innerHTML = `<table>${thead}<tbody>${tbody}</tbody></table>`;
-        itemsView.classList.remove("hidden");
-        itemsEmpty.classList.add("hidden");
-      }
-
-      function humanizeSelectionReason(reason) {
-        const value = String(reason || "").trim();
-        if (!value) {
-          return "no selection details";
-        }
-
-        const map = {
-          user_selected_model: "selected manually in the form",
-          auto_route_disabled: "auto-routing disabled, using configured defaults",
-          large_or_tabular_table_document: "large or strongly tabular OCR, using table-optimized route",
-          small_table_document: "small table OCR, using lower-cost default route",
-          object_document: "object-style document, using default object extraction route",
-        };
-
-        return map[value] || value.replaceAll("_", " ");
-      }
-
-      function humanizeJobProgress(progress, detail) {
-        const labelMap = {
-          queued: "queued",
-          routing: "routing",
-          extracting: "extracting",
-          cleaning: "cleaning OCR",
-          parsing: "parsing rows",
-          llm_primary: "primary model",
-          llm_fallback: "fallback model",
-          finalizing: "finalizing result",
-          cancelling: "cancelling",
-          completed: "completed",
-          cancelled: "cancelled",
-          failed: "failed",
-        };
-        const label = labelMap[String(progress || "").trim()] || String(progress || "working");
-        return detail ? `${label} · ${detail}` : label;
-      }
-
-      function updateSummary(response) {
-        const tokenUsage = response.metrics?.token_usage || {};
-        const totalTokens =
-          tokenUsage?.total?.total_tokens ??
-          tokenUsage?.primary?.total_tokens ??
-          tokenUsage?.fallback?.total_tokens;
-        const duration = response.metrics?.t_total_s;
-        const selection = response.metrics?.model_selection || {};
-        const selectionMode = selection.mode || "unknown";
-        const selectionModel = selection.selected_model || response.model_id || "-";
-        const selectionReason = humanizeSelectionReason(selection.reason);
-
-        document.getElementById("summary-document").textContent = response.document_code || "-";
-        document.getElementById("summary-model").textContent = response.model_id || "-";
-        document.getElementById("summary-count").textContent = String(response.count ?? 0);
-        document.getElementById("summary-tokens").textContent =
-          Number.isFinite(Number(totalTokens)) ? new Intl.NumberFormat().format(Number(totalTokens)) : "-";
-        document.getElementById("summary-duration").textContent =
-          Number.isFinite(Number(duration)) ? `${Number(duration).toFixed(2)}s` : "-";
-        document.getElementById("summary-fallback").textContent =
-          response.metrics?.fallback_used ? "Yes" : "No";
-        summarySelection.innerHTML =
-          `<strong>Model Route:</strong> ${escapeHtml(selectionMode)} · <span class="mono">${escapeHtml(selectionModel)}</span> · ${escapeHtml(selectionReason)}`;
-      }
-
-      function populateMeta(meta) {
-        metaState = meta;
-        documentSelect.innerHTML = (meta.documents || [])
-          .map((item) => `<option value="${item.document_code}">${item.document_code} · ${item.label}</option>`)
-          .join("");
-
-        modelFamilySelect.innerHTML = (meta.model_families || [])
-          .map((family) => {
-            const suffix = family.configured ? "" : " (not configured)";
-            const disabled = family.configured ? "" : " disabled";
-            return `<option value="${family.provider}"${disabled}>${family.label}${suffix}</option>`;
-          })
-          .join("");
-
-        if (meta.defaults?.document_code) {
-          documentSelect.value = meta.defaults.document_code;
-        }
-
-        const configuredFamilies = (meta.model_families || []).filter((item) => item.configured);
-        if (
-          meta.defaults?.model_family &&
-          configuredFamilies.some((item) => item.provider === meta.defaults.model_family)
-        ) {
-          modelFamilySelect.value = meta.defaults.model_family;
-        } else if (configuredFamilies.length) {
-          modelFamilySelect.value = configuredFamilies[0].provider;
-        }
-
-        populateModelOptions(meta, modelFamilySelect.value, meta.defaults?.model || "");
-      }
-
-      function populateModelOptions(meta, family, preferredAlias = "") {
-        const configuredModels = getConfiguredFamilyModels(meta, family);
-        const options = [
-          `<option value="">Auto · service decides</option>`,
-          ...configuredModels.map(
-            (item) => `<option value="${item.alias}">${item.alias} · ${item.model_id}</option>`
-          ),
-        ];
-        modelSelect.innerHTML = options.join("");
-
-        if (preferredAlias && configuredModels.some((item) => item.alias === preferredAlias)) {
-          modelSelect.value = preferredAlias;
-        } else {
-          modelSelect.value = "";
-        }
-      }
-
-      function applyExtractionResponse(json) {
-        resultPill.textContent = `${json.status} · ${json.result_type}`;
-        resultPill.className = "pill mono ok";
-        updateSummary(json);
-        renderFields(json.data?.fields || {});
-        renderItems(json.data?.items || json.items || []);
-        setJson(metricsView, json.metrics || {});
-        setJson(rawView, json);
-      }
-
-      function resetSummary() {
-        document.getElementById("summary-document").textContent = "-";
-        document.getElementById("summary-model").textContent = "-";
-        document.getElementById("summary-count").textContent = "0";
-        document.getElementById("summary-tokens").textContent = "-";
-        document.getElementById("summary-duration").textContent = "-";
-        document.getElementById("summary-fallback").textContent = "-";
-        summarySelection.innerHTML = "<strong>Model Route:</strong> pending";
-      }
-
-      function showJobState(job) {
-        const detail = humanizeJobProgress(job.progress, job.progress_detail || "");
-        resultPill.textContent = `${job.status} · ${detail}`;
-        resultPill.className = "pill mono";
-        summarySelection.innerHTML = `<strong>Job Progress:</strong> ${detail}`;
-        setJson(rawView, job);
-      }
-
-      function handleCancelledJob(job) {
-        stopPollingJob();
-        hideError();
-        resultPill.textContent = "cancelled";
-        resultPill.className = "pill mono";
-        summarySelection.innerHTML = "<strong>Job Progress:</strong> cancelled by user";
-        setJson(metricsView, {});
-        setJson(rawView, job || { status: "cancelled" });
-        setJobControls(false);
-      }
-
-      async function pollJob(jobId) {
-        const response = await fetch(`/web/jobs/${jobId}/`);
-        const json = await readJsonResponse(response);
-        if (!response.ok) {
-          throw new Error(json.detail || "Failed to read extraction job.");
-        }
-
-        if (json.status === "queued" || json.status === "running") {
-          showJobState(json);
-          setJobControls(true, Boolean(json.cancel_requested));
-          activeJobPoll = window.setTimeout(() => {
-            pollJob(jobId).catch(handleJobError);
-          }, 1000);
-          return;
-        }
-
-        stopPollingJob();
-        setJobControls(false);
-
-        if (json.status === "cancelled") {
-          handleCancelledJob(json);
-          return;
-        }
-
-        if (json.status === "completed" && json.result) {
-          applyExtractionResponse(json.result);
-          return;
-        }
-
-        resultPill.textContent = "failed";
-        resultPill.className = "pill mono bad";
-        showError(json.error || json.result?.error || "Extraction failed");
-        if (json.result) {
-          setJson(metricsView, json.result.metrics || {});
-          setJson(rawView, json.result);
-        } else {
-          setJson(metricsView, {});
-          setJson(rawView, { error: json.error || "Extraction failed" });
-        }
-      }
-
-      function handleJobError(error) {
-        stopPollingJob();
-        setJobControls(false);
-        resultPill.textContent = "failed";
-        resultPill.className = "pill mono bad";
-        showError(error.message || "Extraction failed");
-        setJson(metricsView, {});
-        setJson(rawView, { error: error.message || "Extraction failed" });
-      }
-
-      async function loadMeta() {
-        const [healthRes, metaRes] = await Promise.all([
-          fetch("/web/health/"),
-          fetch("/web/meta/"),
-        ]);
-
-        if (!healthRes.ok) {
-          const payload = await readJsonResponse(healthRes);
-          throw new Error(payload.detail || "Failed to load service health.");
-        }
-        if (!metaRes.ok) {
-          const payload = await readJsonResponse(metaRes);
-          throw new Error(payload.detail || "Failed to load service metadata.");
-        }
-
-        const health = await readJsonResponse(healthRes);
-        const meta = await readJsonResponse(metaRes);
-
-        healthPill.textContent = `${health.status} · ${health.llm_api?.provider || "-"}`;
-        healthPill.className = `pill mono ${health.status === "ok" ? "ok" : "bad"}`;
-        renderRuntimeStrip(health);
-        populateMeta(meta);
-        renderProviderGrid(meta);
-      }
-
-      async function runExtraction(event) {
-        event.preventDefault();
-        stopPollingJob();
-        setJobControls(true, true);
-        resultPill.textContent = "queued";
-        resultPill.className = "pill mono";
-        hideError();
-        summarySelection.innerHTML = "<strong>Job Progress:</strong> queued";
-
-        const payload = {
-          document_code: documentSelect.value,
-          model: modelSelect.value || null,
-          ocr_draft: ocrDraftInput.value,
-        };
-
-        try {
-          const response = await fetch("/web/jobs/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-          const json = await readJsonResponse(response);
-          if (!response.ok) {
-            throw new Error(json.detail || "Extraction failed");
-          }
-          activeJobId = json.job_id;
-          setJobControls(true);
-          showJobState(json);
-          await pollJob(json.job_id);
-        } catch (error) {
-          handleJobError(error);
-        }
-      }
-
-      async function cancelExtraction() {
-        if (!activeJobId) {
-          return;
-        }
-
-        cancelButton.disabled = true;
-        resultPill.textContent = "running · cancelling";
-        resultPill.className = "pill mono";
-        summarySelection.innerHTML = "<strong>Job Progress:</strong> waiting for the current step to stop";
-
-        try {
-          const response = await fetch(`/web/jobs/${activeJobId}/cancel/`, {
-            method: "POST",
-          });
-          const json = await readJsonResponse(response);
-          if (!response.ok) {
-            throw new Error(json.detail || "Failed to cancel extraction job.");
-          }
-
-          if (json.status === "cancelled") {
-            handleCancelledJob(json);
-            return;
-          }
-
-          showJobState(json);
-          setJobControls(true, true);
-        } catch (error) {
-          handleJobError(error);
-        }
-      }
-
-      clearButton.addEventListener("click", () => {
-        stopPollingJob();
-        setJobControls(false);
-        ocrDraftInput.value = "";
-        hideError();
-        renderFields({});
-        renderItems([]);
-        setJson(metricsView, {});
-        setJson(rawView, {});
-        resultPill.textContent = "No result yet";
-        resultPill.className = "pill mono";
-        resetSummary();
-      });
-
-      cancelButton.addEventListener("click", cancelExtraction);
-
-      modelFamilySelect.addEventListener("change", () => {
-        if (!metaState) {
-          return;
-        }
-        populateModelOptions(metaState, modelFamilySelect.value);
-      });
-
-      document.getElementById("extract-form").addEventListener("submit", runExtraction);
-      setJobControls(false);
-      loadMeta().catch((error) => {
-        healthPill.textContent = "metadata error";
-        healthPill.className = "pill mono bad";
-        showError(error.message);
-        setJson(rawView, { error: error.message });
-      });
-    </script>
-  </body>
-</html>
-"""
+        <script>
+            const docDefinitions = {docs_json};
+            const modelFamilies = {families_json};
+            const defaultProvider = {default_provider_json};
+            const defaultModelValue = {default_model_json};
+
+            function init() {{
+                const dSelect = document.getElementById('doc_code');
+                docDefinitions.forEach(doc => {{
+                    const opt = document.createElement('option');
+                    opt.value = doc.document_code;
+                    opt.innerText = `${{doc.document_code}} (${{doc.label}})`;
+                    dSelect.appendChild(opt);
+                }});
+
+                const pSelect = document.getElementById('provider');
+                modelFamilies.forEach(fam => {{
+                    const opt = document.createElement('option');
+                    opt.value = fam.provider;
+                    opt.innerText = fam.label + (fam.configured ? "" : " (не настроен)");
+                    pSelect.appendChild(opt);
+                }});
+                if (defaultProvider) {{
+                    pSelect.value = defaultProvider;
+                }}
+                updateModels(defaultModelValue);
+            }}
+
+            function getSelectedDocDefinition() {{
+                const selectedCode = document.getElementById('doc_code').value;
+                return docDefinitions.find(doc => doc.document_code === selectedCode) || null;
+            }}
+
+            function updateModels(preferredValue = "") {{
+                const pValue = document.getElementById('provider').value;
+                const mSelect = document.getElementById('model_id');
+                mSelect.innerHTML = "";
+                const family = modelFamilies.find(f => f.provider === pValue);
+                if (family) {{
+                    family.models.forEach(m => {{
+                        const opt = document.createElement('option');
+                        opt.value = m.value;
+                        opt.innerText = m.label;
+                        mSelect.appendChild(opt);
+                    }});
+                    if (preferredValue && family.models.some(m => m.value === preferredValue)) {{
+                        mSelect.value = preferredValue;
+                    }}
+                }}
+            }}
+
+            function handleProviderChange() {{
+                updateModels();
+                document.getElementById('custom_model').value = "";
+            }}
+
+            function handleModelChange() {{
+                document.getElementById('custom_model').value = "";
+            }}
+
+            async function startExtraction() {{
+                const ocr = document.getElementById('ocr_draft').value;
+                if (!ocr.trim()) return alert("Нет текста!");
+
+                const custom = document.getElementById('custom_model').value;
+                const finalModel = custom || document.getElementById('model_id').value;
+
+                document.getElementById('placeholder').classList.add('hidden');
+                document.getElementById('success_content').classList.add('hidden');
+                document.getElementById('loading').classList.remove('hidden');
+
+                try {{
+                    const response = await fetch('/web/extract/', {{
+                        method: 'POST',
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify({{
+                            document_code: document.getElementById('doc_code').value,
+                            ocr_draft: ocr,
+                            model: finalModel
+                        }})
+                    }});
+                    const res = await response.json();
+                    if (response.ok && res.status === "success") showResults(res);
+                    else alert("Ошибка: " + (res.error || res.detail));
+                }} catch (e) {{ alert("Сеть: " + e); }}
+                finally {{ document.getElementById('loading').classList.add('hidden'); }}
+            }}
+
+            function showResults(data) {{
+                document.getElementById('success_content').classList.remove('hidden');
+                document.getElementById('stat_count').innerText = `Найдено: ${{data.data.count}}`;
+                document.getElementById('stat_time').innerText = `Время: ${{data.duration}}s`;
+                const execution = (data.metrics && data.metrics.execution) || {{}};
+                document.getElementById('stat_model').innerText = data.model_id ? `Модель: ${{data.model_id}}` : '';
+                document.getElementById('stat_route').innerText = execution.fallback_used
+                    ? `Маршрут: fallback -> ${{execution.final_model || '-' }}`
+                    : (execution.final_model ? `Маршрут: primary -> ${{execution.final_model}}` : '');
+                
+                const tbody = document.getElementById('table_body');
+                const thead = document.getElementById('table_header_row');
+                const fieldsPanel = document.getElementById('fields_panel');
+                const fieldsHeaderRow = document.getElementById('fields_header_row');
+                const fieldsValueRow = document.getElementById('fields_value_row');
+                const jsonPanel = document.getElementById('json_panel');
+                const jsonPayload = document.getElementById('json_payload');
+                const tableWrapper = document.getElementById('table_wrapper');
+                tbody.innerHTML = ""; thead.innerHTML = "";
+                fieldsHeaderRow.innerHTML = "";
+                fieldsValueRow.innerHTML = "";
+                fieldsPanel.classList.add('hidden');
+                jsonPanel.classList.add('hidden');
+                jsonPayload.textContent = "";
+                tableWrapper.classList.add('hidden');
+                
+                const resultType = data.result_type || "";
+                const fields = (data.data && data.data.fields) || {{}};
+                const items = data.data.items || [];
+                const selectedDoc = getSelectedDocDefinition();
+                const schemaFieldKeys = ((selectedDoc && selectedDoc.schema && selectedDoc.schema.fields) || [])
+                    .map(field => field.name)
+                    .filter(Boolean);
+                const fieldKeySet = new Set(schemaFieldKeys);
+                Object.keys(fields).forEach(key => fieldKeySet.add(key));
+                const fieldEntries = Array.from(fieldKeySet).map(key => {{
+                    const value = fields[key];
+                    const display = value === null || value === undefined || value === "" ? "-" : value;
+                    return [key, display];
+                }});
+
+                if (fieldEntries.length > 0) {{
+                    fieldsPanel.classList.remove('hidden');
+                    fieldEntries.forEach(([key, value]) => {{
+                        fieldsHeaderRow.innerHTML += `<th class="p-1.5 border border-gray-200 whitespace-nowrap font-semibold">${{escapeHtml(key)}}</th>`;
+                        fieldsValueRow.innerHTML += `<td class="p-1.5 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(value))}}</td>`;
+                    }});
+                }}
+
+                if (resultType === 'object') {{
+                    jsonPanel.classList.remove('hidden');
+                    jsonPayload.textContent = JSON.stringify(data.data, null, 2);
+                }} else if (items.length > 0) {{
+                    tableWrapper.classList.remove('hidden');
+                    const schemaKeys = ((selectedDoc && selectedDoc.schema && selectedDoc.schema.item_fields) || [])
+                        .map(field => field.name)
+                        .filter(Boolean);
+                    const keySet = new Set();
+                    schemaKeys.forEach(key => keySet.add(key));
+                    items.forEach(item => {{
+                        Object.keys(item || {{}}).forEach(key => keySet.add(key));
+                    }});
+                    const itemKeys = Array.from(keySet);
+                    const headerFieldNames = new Set(fieldEntries.map(([key, _]) => key));
+                    const keys = [];
+                    if (itemKeys.includes('position')) {{
+                        keys.push('position');
+                    }}
+                    itemKeys.forEach(k => {{
+                        if (k !== 'position' && !headerFieldNames.has(k)) {{
+                            keys.push(k);
+                        }}
+                    }});
+                    keys.forEach(k => thead.innerHTML += `<th class="p-1.5 border border-gray-200 whitespace-nowrap font-semibold">${{k}}</th>`);
+                    items.forEach(item => {{
+                        let row = "<tr>";
+                        keys.forEach(k => {{
+                            const value = item[k];
+                            const display = value === null || value === undefined || value === "" ? "-" : value;
+                            row += `<td class="p-1.5 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(display))}}</td>`;
+                        }});
+                        tbody.innerHTML += row + "</tr>";
+                    }});
+                }}
+            }}
+
+            function escapeHtml(value) {{
+                return value
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#39;');
+            }}
+
+            window.onload = init;
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)

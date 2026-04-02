@@ -1,0 +1,1586 @@
+{
+  "status": "success",
+  "document_code": "04021",
+  "duration": 22.913,
+  "error": "",
+  "data": {
+    "items": [
+      {
+        "description": "Freight Cost",
+        "quantity": 1,
+        "price": 0.0,
+        "hs_code": null,
+        "position": 1
+      },
+      {
+        "description": "Grease",
+        "quantity": 20,
+        "price": 8.82,
+        "hs_code": "3403990000",
+        "position": 2
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 70,
+        "price": 6.56,
+        "hs_code": "4016930005",
+        "position": 3
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 1.78,
+        "hs_code": "6813890009",
+        "position": 4
+      },
+      {
+        "description": "Gasket",
+        "quantity": 1,
+        "price": 1.78,
+        "hs_code": "6813890009",
+        "position": 5
+      },
+      {
+        "description": "Gasket",
+        "quantity": 18,
+        "price": 2.94,
+        "hs_code": "4016930005",
+        "position": 6
+      },
+      {
+        "description": "Console",
+        "quantity": 3,
+        "price": 6.15,
+        "hs_code": "8302300009",
+        "position": 7
+      },
+      {
+        "description": "Console",
+        "quantity": 3,
+        "price": 6.15,
+        "hs_code": "8302300009",
+        "position": 8
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 3,
+        "price": 1.47,
+        "hs_code": "4016930005",
+        "position": 9
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 2,
+        "price": 1.47,
+        "hs_code": "4016930005",
+        "position": 10
+      },
+      {
+        "description": "Clip",
+        "quantity": 10,
+        "price": 0.99,
+        "hs_code": "3926909709",
+        "position": 11
+      },
+      {
+        "description": "Clip",
+        "quantity": 20,
+        "price": 0.99,
+        "hs_code": "3926909709",
+        "position": 12
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 40,
+        "price": 1.0,
+        "hs_code": "7318220008",
+        "position": 13
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 40,
+        "price": 1.0,
+        "hs_code": "7318220008",
+        "position": 14
+      },
+      {
+        "description": "Spring nut",
+        "quantity": 100,
+        "price": 0.73,
+        "hs_code": "7318210009",
+        "position": 15
+      },
+      {
+        "description": "Spring nut",
+        "quantity": 10,
+        "price": 0.73,
+        "hs_code": "7318210009",
+        "position": 16
+      },
+      {
+        "description": "Sealing set",
+        "quantity": 8,
+        "price": 18.37,
+        "hs_code": "7326909409",
+        "position": 17
+      },
+      {
+        "description": "Sealing set",
+        "quantity": 8,
+        "price": 18.37,
+        "hs_code": "7326909409",
+        "position": 18
+      },
+      {
+        "description": "Plug",
+        "quantity": 9,
+        "price": 2.23,
+        "hs_code": "3926909709",
+        "position": 19
+      },
+      {
+        "description": "Plug",
+        "quantity": 7,
+        "price": 2.235,
+        "hs_code": "3926909709",
+        "position": 20
+      },
+      {
+        "description": "Clip",
+        "quantity": 50,
+        "price": 0.92,
+        "hs_code": "3926909709",
+        "position": 21
+      },
+      {
+        "description": "Clamp",
+        "quantity": 30,
+        "price": 1.92,
+        "hs_code": "7326909807",
+        "position": 22
+      },
+      {
+        "description": "Screw",
+        "quantity": 5,
+        "price": 0.565,
+        "hs_code": "7318159008",
+        "position": 23
+      },
+      {
+        "description": "Clip",
+        "quantity": 30,
+        "price": 0.74,
+        "hs_code": "3926909709",
+        "position": 24
+      },
+      {
+        "description": "Screw",
+        "quantity": 3,
+        "price": 0.84,
+        "hs_code": "7318159008",
+        "position": 25
+      },
+      {
+        "description": "Screw",
+        "quantity": 3,
+        "price": 0.84,
+        "hs_code": "7318159008",
+        "position": 26
+      },
+      {
+        "description": "Sensor",
+        "quantity": 1,
+        "price": 20.17,
+        "hs_code": "9026102900",
+        "position": 27
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 7,
+        "price": 8.2,
+        "hs_code": "3926909709",
+        "position": 28
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 7,
+        "price": 8.2,
+        "hs_code": "3926909709",
+        "position": 29
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 9.87,
+        "hs_code": "4016930005",
+        "position": 30
+      },
+      {
+        "description": "Belt",
+        "quantity": 1,
+        "price": 14.26,
+        "hs_code": "4010390000",
+        "position": 31
+      },
+      {
+        "description": "Clip",
+        "quantity": 50,
+        "price": 1.03,
+        "hs_code": "3926909709",
+        "position": 32
+      },
+      {
+        "description": "-",
+        "quantity": 10,
+        "price": 2.72,
+        "hs_code": "8544429007",
+        "position": 33
+      },
+      {
+        "description": "Clamp",
+        "quantity": 10,
+        "price": 2.72,
+        "hs_code": "8544429007",
+        "position": 34
+      },
+      {
+        "description": "Fuel tank cap",
+        "quantity": 2,
+        "price": 12.99,
+        "hs_code": "3926909709",
+        "position": 35
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 2,
+        "price": 1.07,
+        "hs_code": "4016930005",
+        "position": 36
+      },
+      {
+        "description": "Exhaust valve",
+        "quantity": 3,
+        "price": 2.37,
+        "hs_code": "7307991000",
+        "position": 37
+      },
+      {
+        "description": "Clip",
+        "quantity": 2,
+        "price": 8.76,
+        "hs_code": "7318210009",
+        "position": 38
+      },
+      {
+        "description": "Valve cover gasket",
+        "quantity": 16,
+        "price": 26.54,
+        "hs_code": "4016930005",
+        "position": 39
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 14.74,
+        "hs_code": "7326909409",
+        "position": 40
+      },
+      {
+        "description": "Ring",
+        "quantity": 3,
+        "price": 3.86,
+        "hs_code": "7318210009",
+        "position": 41
+      },
+      {
+        "description": "Ring",
+        "quantity": 2,
+        "price": 1.47,
+        "hs_code": "4016930005",
+        "position": 42
+      },
+      {
+        "description": "Gasket",
+        "quantity": 3,
+        "price": 5.26,
+        "hs_code": "3926909709",
+        "position": 43
+      },
+      {
+        "description": "Retainer",
+        "quantity": 1,
+        "price": 1.58,
+        "hs_code": "3926909709",
+        "position": 44
+      },
+      {
+        "description": "Retainer",
+        "quantity": 4,
+        "price": 1.58,
+        "hs_code": "3926909709",
+        "position": 45
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 1,
+        "price": 7.67,
+        "hs_code": "40.16930005",
+        "position": 46
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 2,
+        "price": 15.02,
+        "hs_code": "4016995209",
+        "position": 47
+      },
+      {
+        "description": "Protection Washer",
+        "quantity": 3,
+        "price": 6.24,
+        "hs_code": "8409990009",
+        "position": 48
+      },
+      {
+        "description": "Washer",
+        "quantity": 1,
+        "price": 12.4,
+        "hs_code": "4016995 7 09",
+        "position": 49
+      },
+      {
+        "description": "Washer",
+        "quantity": 1,
+        "price": 12.4,
+        "hs_code": null,
+        "position": 50
+      },
+      {
+        "description": "Cover",
+        "quantity": 1,
+        "price": 11.86,
+        "hs_code": "3926909709",
+        "position": 51
+      },
+      {
+        "description": "Cover",
+        "quantity": 1,
+        "price": 11.86,
+        "hs_code": "3926909709",
+        "position": 52
+      },
+      {
+        "description": "Cooling water hose",
+        "quantity": 2,
+        "price": 26.72,
+        "hs_code": "4009310000",
+        "position": 53
+      },
+      {
+        "description": "Cooling water hose",
+        "quantity": 3,
+        "price": 14.04,
+        "hs_code": "4009320000",
+        "position": 54
+      },
+      {
+        "description": "Hose",
+        "quantity": 1,
+        "price": 25.4,
+        "hs_code": "4009320000",
+        "position": 55
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 5,
+        "price": 2.58,
+        "hs_code": "4016930005",
+        "position": 56
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 5,
+        "price": 2.58,
+        "hs_code": "4016930005",
+        "position": 57
+      },
+      {
+        "description": "Guide pin",
+        "quantity": 3,
+        "price": 5.6,
+        "hs_code": "3926909709",
+        "position": 58
+      },
+      {
+        "description": "Repair kit",
+        "quantity": 1,
+        "price": 32.49,
+        "hs_code": "3926909709",
+        "position": 59
+      },
+      {
+        "description": "Cover",
+        "quantity": 9,
+        "price": 5.2,
+        "hs_code": "3926909709",
+        "position": 60
+      },
+      {
+        "description": "Cover",
+        "quantity": 1,
+        "price": 5.2,
+        "hs_code": "3926909709",
+        "position": 61
+      },
+      {
+        "description": "Belt",
+        "quantity": 19,
+        "price": 17.81,
+        "hs_code": "4010390000",
+        "position": 62
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 1.49,
+        "hs_code": "7318220008",
+        "position": 63
+      },
+      {
+        "description": "Clip",
+        "quantity": 30,
+        "price": 1.13,
+        "hs_code": "3926909709",
+        "position": 64
+      },
+      {
+        "description": "Hose pipeline",
+        "quantity": 1,
+        "price": 96.4,
+        "hs_code": "4009310000",
+        "position": 65
+      },
+      {
+        "description": "Toothed belt set",
+        "quantity": 199,
+        "price": 99.53,
+        "hs_code": "4010330000",
+        "position": 66
+      },
+      {
+        "description": "Toothed belt set",
+        "quantity": 5,
+        "price": 87.73,
+        "hs_code": "4010330000",
+        "position": 67
+      },
+      {
+        "description": "Toothed belt set",
+        "quantity": 36,
+        "price": 87.73,
+        "hs_code": "4010330000",
+        "position": 68
+      },
+      {
+        "description": "Retainer",
+        "quantity": 2,
+        "price": 22.34,
+        "hs_code": null,
+        "position": 69
+      },
+      {
+        "description": "Retainer",
+        "quantity": 2,
+        "price": 22.34,
+        "hs_code": "3926909709",
+        "position": 70
+      },
+      {
+        "description": "Gasket",
+        "quantity": 5,
+        "price": 42.63,
+        "hs_code": "6813890009",
+        "position": 71
+      },
+      {
+        "description": "Gasket",
+        "quantity": 5,
+        "price": 42.63,
+        "hs_code": "6813890009",
+        "position": 72
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 42.63,
+        "hs_code": "6813890009",
+        "position": 73
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 42.63,
+        "hs_code": "6813890009",
+        "position": 74
+      },
+      {
+        "description": "Switch",
+        "quantity": 2,
+        "price": 12.24,
+        "hs_code": "8536501109",
+        "position": 75
+      },
+      {
+        "description": "Building kit",
+        "quantity": 1,
+        "price": 15.22,
+        "hs_code": "8302300009",
+        "position": 76
+      },
+      {
+        "description": "Grommet",
+        "quantity": 5,
+        "price": 14.68,
+        "hs_code": "4016930005",
+        "position": 77
+      },
+      {
+        "description": "Grommet",
+        "quantity": 5,
+        "price": 14.68,
+        "hs_code": "4016930005",
+        "position": 78
+      },
+      {
+        "description": "Cover",
+        "quantity": 1,
+        "price": 4.32,
+        "hs_code": "3926909709",
+        "position": 79
+      },
+      {
+        "description": "Cover",
+        "quantity": 1,
+        "price": 4.32,
+        "hs_code": "3926909709",
+        "position": 80
+      },
+      {
+        "description": "Gasket",
+        "quantity": 10,
+        "price": 1.19,
+        "hs_code": "7326909409",
+        "position": 81
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 8,
+        "price": 1.13,
+        "hs_code": "4016930005",
+        "position": 82
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 2,
+        "price": 1.13,
+        "hs_code": "4016930005",
+        "position": 83
+      },
+      {
+        "description": "Clip",
+        "quantity": 10,
+        "price": 1.03,
+        "hs_code": "7318159008",
+        "position": 84
+      },
+      {
+        "description": "Clip",
+        "quantity": 5,
+        "price": 1.03,
+        "hs_code": null,
+        "position": 85
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 2,
+        "price": 1.13,
+        "hs_code": "4016930005",
+        "position": 86
+      },
+      {
+        "description": "Drain plug",
+        "quantity": 5,
+        "price": 1.39,
+        "hs_code": "3917400009",
+        "position": 87
+      },
+      {
+        "description": "Bearing bush",
+        "quantity": 1,
+        "price": 3.08,
+        "hs_code": "4016995709",
+        "position": 88
+      },
+      {
+        "description": "Bearing bush",
+        "quantity": 1,
+        "price": 3.08,
+        "hs_code": "4016995709",
+        "position": 89
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 3,
+        "price": 2.57,
+        "hs_code": "4016930005",
+        "position": 90
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 3,
+        "price": 2.57,
+        "hs_code": "4016930005",
+        "position": 91
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 50,
+        "price": 7.32,
+        "hs_code": "4016995209",
+        "position": 92
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 1,
+        "price": 7.32,
+        "hs_code": "4016995209",
+        "position": 93
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 40,
+        "price": 7.32,
+        "hs_code": "4016995209",
+        "position": 94
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 50,
+        "price": 7.32,
+        "hs_code": "4016995209",
+        "position": 95
+      },
+      {
+        "description": "Clip",
+        "quantity": 10,
+        "price": 1.03,
+        "hs_code": "3926909709",
+        "position": 96
+      },
+      {
+        "description": "O-Ring",
+        "quantity": 20,
+        "price": 4.5,
+        "hs_code": "4016930005",
+        "position": 97
+      },
+      {
+        "description": "O-King",
+        "quantity": 20,
+        "price": 4.5,
+        "hs_code": "401000000",
+        "position": 98
+      },
+      {
+        "description": "O-Ring",
+        "quantity": 20,
+        "price": 4.5,
+        "hs_code": "4016930005",
+        "position": 99
+      },
+      {
+        "description": "27 V",
+        "quantity": null,
+        "price": 207.0,
+        "hs_code": "0404000007",
+        "position": 100
+      },
+      {
+        "description": "Valve",
+        "quantity": 50,
+        "price": 5.94,
+        "hs_code": "8481809907",
+        "position": 101
+      },
+      {
+        "description": "Valve",
+        "quantity": 10,
+        "price": 5.94,
+        "hs_code": "8481809907",
+        "position": 102
+      },
+      {
+        "description": "Valve",
+        "quantity": 50,
+        "price": 5.94,
+        "hs_code": "8481809907",
+        "position": 103
+      },
+      {
+        "description": "Gasket",
+        "quantity": 3,
+        "price": 5.16,
+        "hs_code": "7326909409",
+        "position": 104
+      },
+      {
+        "description": "Bracket",
+        "quantity": 1,
+        "price": 44.06,
+        "hs_code": "8302300009",
+        "position": 105
+      },
+      {
+        "description": "Bracket",
+        "quantity": 2,
+        "price": 44.06,
+        "hs_code": "8302300009",
+        "position": 106
+      },
+      {
+        "description": "Handle",
+        "quantity": 9,
+        "price": 5.16,
+        "hs_code": "8302300009",
+        "position": 107
+      },
+      {
+        "description": "Handle",
+        "quantity": 8,
+        "price": 5.16,
+        "hs_code": "8302300009",
+        "position": 108
+      },
+      {
+        "description": "Temperatur",
+        "quantity": null,
+        "price": 13.04,
+        "hs_code": "9025192000",
+        "position": 109
+      },
+      {
+        "description": "41 (A) (A) (A) (A) (A) (A) (A) (A) (A) (A)",
+        "quantity": 31,
+        "price": 13.04,
+        "hs_code": "0020102000",
+        "position": 110
+      },
+      {
+        "description": "e sender",
+        "quantity": 1,
+        "price": 18.83,
+        "hs_code": "4009110000",
+        "position": 111
+      },
+      {
+        "description": "Valve",
+        "quantity": null,
+        "price": 27.35,
+        "hs_code": "8481309908",
+        "position": 112
+      },
+      {
+        "description": "Valve",
+        "quantity": 2,
+        "price": 27.35,
+        "hs_code": "8481309908",
+        "position": 113
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 4,
+        "price": 8.83,
+        "hs_code": "4016930005",
+        "position": 114
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 10,
+        "price": 8.83,
+        "hs_code": "4016930005",
+        "position": 115
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 2,
+        "price": 8.83,
+        "hs_code": "4016930005",
+        "position": 116
+      },
+      {
+        "description": "Clip",
+        "quantity": 8,
+        "price": 2.03,
+        "hs_code": "3926909709",
+        "position": 117
+      },
+      {
+        "description": "Clip",
+        "quantity": 2,
+        "price": 2.03,
+        "hs_code": "3926909709",
+        "position": 118
+      },
+      {
+        "description": "Sealing",
+        "quantity": 4,
+        "price": 4.98,
+        "hs_code": "8708299009",
+        "position": 119
+      },
+      {
+        "description": "Moulding",
+        "quantity": 3,
+        "price": 4.98,
+        "hs_code": null,
+        "position": 120
+      },
+      {
+        "description": "Moulding",
+        "quantity": 2,
+        "price": 16.24,
+        "hs_code": "8708299009",
+        "position": 121
+      },
+      {
+        "description": "Moulding",
+        "quantity": 1,
+        "price": 16.24,
+        "hs_code": "8708299009",
+        "position": 122
+      },
+      {
+        "description": "Moulding",
+        "quantity": 3,
+        "price": 16.24,
+        "hs_code": "8708299009",
+        "position": 123
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 2,
+        "price": 4.23,
+        "hs_code": "4016995209",
+        "position": 124
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 1,
+        "price": 4.23,
+        "hs_code": "4016930005",
+        "position": 125
+      },
+      {
+        "description": "Plug",
+        "quantity": 4,
+        "price": 2.9,
+        "hs_code": "8536699008",
+        "position": 126
+      },
+      {
+        "description": "Plug",
+        "quantity": 5,
+        "price": 2.9,
+        "hs_code": "8536699008",
+        "position": 127
+      },
+      {
+        "description": "Cap",
+        "quantity": 4,
+        "price": 3.84,
+        "hs_code": "3926909706",
+        "position": 128
+      },
+      {
+        "description": "Cap",
+        "quantity": 4,
+        "price": 3.84,
+        "hs_code": "3926909706",
+        "position": 129
+      },
+      {
+        "description": "Spark plug",
+        "quantity": 3,
+        "price": 34.54,
+        "hs_code": "8511100009",
+        "position": 130
+      },
+      {
+        "description": "Hose",
+        "quantity": 4,
+        "price": 8.47,
+        "hs_code": "4009310000",
+        "position": 131
+      },
+      {
+        "description": "Hose",
+        "quantity": 4,
+        "price": 8.47,
+        "hs_code": "4009310000",
+        "position": 132
+      },
+      {
+        "description": "Fuel pipe",
+        "quantity": 1,
+        "price": 7.9,
+        "hs_code": "8708999709",
+        "position": 133
+      },
+      {
+        "description": "Fuel pipe",
+        "quantity": 1,
+        "price": 7.9,
+        "hs_code": "8708999709",
+        "position": 134
+      },
+      {
+        "description": "O Bina",
+        "quantity": 29,
+        "price": 2.95,
+        "hs_code": "4016930005",
+        "position": 135
+      },
+      {
+        "description": "O - Ring",
+        "quantity": null,
+        "price": null,
+        "hs_code": "7326909409",
+        "position": 136
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 8.53,
+        "hs_code": null,
+        "position": 137
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 8.53,
+        "hs_code": "7326909409",
+        "position": 138
+      },
+      {
+        "description": "Oil stick",
+        "quantity": 3,
+        "price": 16.24,
+        "hs_code": "9017801000",
+        "position": 139
+      },
+      {
+        "description": "Shaft",
+        "quantity": 1,
+        "price": 22.98,
+        "hs_code": "8483109500",
+        "position": 140
+      },
+      {
+        "description": "Shaft",
+        "quantity": 1,
+        "price": 22.98,
+        "hs_code": "8483109500",
+        "position": 141
+      },
+      {
+        "description": "Clip",
+        "quantity": 4,
+        "price": 1.86,
+        "hs_code": "3926909709",
+        "position": 142
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 30,
+        "price": 2.69,
+        "hs_code": "4016930005",
+        "position": 143
+      },
+      {
+        "description": "O - Ming",
+        "quantity": 20,
+        "price": 3.0,
+        "hs_code": null,
+        "position": 144
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 30,
+        "price": 2.69,
+        "hs_code": "40 10330003",
+        "position": 145
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 20.61,
+        "hs_code": "4016995209",
+        "position": 146
+      },
+      {
+        "description": "Clip",
+        "quantity": 20,
+        "price": 2.36,
+        "hs_code": "3926909709",
+        "position": 147
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 16.51,
+        "hs_code": "4016930005",
+        "position": 148
+      },
+      {
+        "description": "Valve shank gasket",
+        "quantity": 80,
+        "price": 3.4,
+        "hs_code": "4016995209",
+        "position": 149
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 2.65,
+        "hs_code": "6813890009",
+        "position": 150
+      },
+      {
+        "description": "Gasket",
+        "quantity": 2,
+        "price": 2.03,
+        "hs_code": "001000000",
+        "position": 151
+      },
+      {
+        "description": "Sealing ring",
+        "quantity": 50,
+        "price": 1.0,
+        "hs_code": "7318220008",
+        "position": 152
+      },
+      {
+        "description": "Cap",
+        "quantity": 10,
+        "price": 9.43,
+        "hs_code": "3926909709",
+        "position": 153
+      },
+      {
+        "description": "Cap",
+        "quantity": 10,
+        "price": 9.43,
+        "hs_code": "3926909709",
+        "position": 154
+      },
+      {
+        "description": "Cover",
+        "quantity": 5,
+        "price": 9.43,
+        "hs_code": "3926909706",
+        "position": 155
+      },
+      {
+        "description": "Amplifier",
+        "quantity": 1,
+        "price": 320.13,
+        "hs_code": "8483508000",
+        "position": 156
+      },
+      {
+        "description": "Alternator",
+        "quantity": 20,
+        "price": 2.21,
+        "hs_code": "8483508000",
+        "position": 157
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 20,
+        "price": 1.88,
+        "hs_code": "4016930005",
+        "position": 158
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 20,
+        "price": 1.88,
+        "hs_code": "4016930005",
+        "position": 159
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 6,
+        "price": 1.88,
+        "hs_code": "4016930005",
+        "position": 160
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 10,
+        "price": 0.72,
+        "hs_code": "4016930005",
+        "position": 161
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 5,
+        "price": 0.72,
+        "hs_code": "4016930005",
+        "position": 162
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 30,
+        "price": 1.88,
+        "hs_code": null,
+        "position": 163
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 6,
+        "price": 1.88,
+        "hs_code": "4016930005",
+        "position": 164
+      },
+      {
+        "description": "Housing",
+        "quantity": 3,
+        "price": 0.73,
+        "hs_code": "3926909709",
+        "position": 165
+      },
+      {
+        "description": "Blind rivet",
+        "quantity": 10,
+        "price": 0.75,
+        "hs_code": "8308200000",
+        "position": 166
+      },
+      {
+        "description": "Blind rivet",
+        "quantity": 10,
+        "price": 0.75,
+        "hs_code": "8308200000",
+        "position": 167
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 2.49,
+        "hs_code": "7318159008",
+        "position": 168
+      },
+      {
+        "description": "Screw",
+        "quantity": 8,
+        "price": 2.49,
+        "hs_code": "7318159008",
+        "position": 169
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 5,
+        "price": 1.3,
+        "hs_code": "4016930005",
+        "position": 170
+      },
+      {
+        "description": "Hose clamp",
+        "quantity": 40,
+        "price": 2.72,
+        "hs_code": "7326909807",
+        "position": 171
+      },
+      {
+        "description": "nose clomp",
+        "quantity": 40,
+        "price": 4.22,
+        "hs_code": "2047220000",
+        "position": 172
+      },
+      {
+        "description": "Insulator",
+        "quantity": 10,
+        "price": 1.32,
+        "hs_code": "3917320009",
+        "position": 173
+      },
+      {
+        "description": "Insulator",
+        "quantity": 10,
+        "price": 1.32,
+        "hs_code": "3917320009",
+        "position": 174
+      },
+      {
+        "description": "Hose clamp",
+        "quantity": 3,
+        "price": 1.33,
+        "hs_code": "7326909807",
+        "position": 175
+      },
+      {
+        "description": "Hose clamp",
+        "quantity": 40,
+        "price": 2.69,
+        "hs_code": "7326909807",
+        "position": 176
+      },
+      {
+        "description": "nose clamp",
+        "quantity": 40,
+        "price": 2.05,
+        "hs_code": "102000001",
+        "position": 177
+      },
+      {
+        "description": "Hose clamp",
+        "quantity": 40,
+        "price": 2.69,
+        "hs_code": "7326909807",
+        "position": 178
+      },
+      {
+        "description": "Clamp",
+        "quantity": 20,
+        "price": 1.92,
+        "hs_code": "7326909807",
+        "position": 179
+      },
+      {
+        "description": "*",
+        "quantity": 10,
+        "price": 1.92,
+        "hs_code": "7326909807",
+        "position": 180
+      },
+      {
+        "description": "Nut",
+        "quantity": 10,
+        "price": 0.73,
+        "hs_code": "3926909709",
+        "position": 181
+      },
+      {
+        "description": "Nut 🦡",
+        "quantity": 10,
+        "price": 0.73,
+        "hs_code": "3926909709",
+        "position": 182
+      },
+      {
+        "description": "Nut",
+        "quantity": 30,
+        "price": 1.04,
+        "hs_code": "3926909709",
+        "position": 183
+      },
+      {
+        "description": "Nut",
+        "quantity": 30,
+        "price": 1.04,
+        "hs_code": "3926909709",
+        "position": 184
+      },
+      {
+        "description": "Болт М6х10 мм фланцевый",
+        "quantity": 20,
+        "price": 1.0,
+        "hs_code": "7318159008",
+        "position": 185
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 1.11,
+        "hs_code": "7318159008",
+        "position": 186
+      },
+      {
+        "description": "Blind rivet",
+        "quantity": 40,
+        "price": 1.37,
+        "hs_code": "8308200000",
+        "position": 187
+      },
+      {
+        "description": "Screw",
+        "quantity": 8,
+        "price": 0.99,
+        "hs_code": "7318159008",
+        "position": 188
+      },
+      {
+        "description": "Screw",
+        "quantity": 20,
+        "price": 1.14,
+        "hs_code": "7318159008",
+        "position": 189
+      },
+      {
+        "description": "Screw",
+        "quantity": 2,
+        "price": 3.96,
+        "hs_code": null,
+        "position": 190
+      },
+      {
+        "description": "Nut",
+        "quantity": 10,
+        "price": 0.73,
+        "hs_code": "7318169109",
+        "position": 191
+      },
+      {
+        "description": "Nut",
+        "quantity": 40,
+        "price": 1.33,
+        "hs_code": "7318169900",
+        "position": 192
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 1.09,
+        "hs_code": "7318159008",
+        "position": 193
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 0.76,
+        "hs_code": "1210122000",
+        "position": 194
+      },
+      {
+        "description": "Screw",
+        "quantity": 4,
+        "price": 0.76,
+        "hs_code": "7318159008",
+        "position": 195
+      },
+      {
+        "description": "Screw",
+        "quantity": 40,
+        "price": 0.76,
+        "hs_code": "7318159008",
+        "position": 196
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 0.76,
+        "hs_code": "7318159008",
+        "position": 197
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 0.76,
+        "hs_code": "7318159008",
+        "position": 198
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 0.99,
+        "hs_code": "7318159008",
+        "position": 199
+      },
+      {
+        "description": "Screw",
+        "quantity": 20,
+        "price": 0.61,
+        "hs_code": "7318159008",
+        "position": 200
+      },
+      {
+        "description": "Nut",
+        "quantity": 20,
+        "price": 1.33,
+        "hs_code": "8308200000",
+        "position": 201
+      },
+      {
+        "description": "Nut",
+        "quantity": 10,
+        "price": 1.33,
+        "hs_code": "8308200000",
+        "position": 202
+      },
+      {
+        "description": "Nut",
+        "quantity": 10,
+        "price": 1.35,
+        "hs_code": "7318169109",
+        "position": 203
+      },
+      {
+        "description": "Screw nipple",
+        "quantity": 4,
+        "price": 4.66,
+        "hs_code": "8481804000",
+        "position": 204
+      },
+      {
+        "description": "Screw nipple",
+        "quantity": 3,
+        "price": 4.66,
+        "hs_code": "8481804000",
+        "position": 205
+      },
+      {
+        "description": "Screw",
+        "quantity": 10,
+        "price": 3.19,
+        "hs_code": "7318159008",
+        "position": 206
+      },
+      {
+        "description": "Screw",
+        "quantity": 100,
+        "price": 1.09,
+        "hs_code": "7318159008",
+        "position": 207
+      },
+      {
+        "description": "Screw",
+        "quantity": 50,
+        "price": 1.43,
+        "hs_code": "7318159008",
+        "position": 208
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 10,
+        "price": 9.28,
+        "hs_code": "4016930005",
+        "position": 209
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 8,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 210
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 5,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 211
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 8,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 212
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 3,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 213
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 20,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 214
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 7,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 215
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 20,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 216
+      },
+      {
+        "description": "O-Ring",
+        "quantity": 70,
+        "price": 2.95,
+        "hs_code": "4016930005",
+        "position": 217
+      },
+      {
+        "description": "O-Ring",
+        "quantity": 17,
+        "price": 2.95,
+        "hs_code": "4016930005",
+        "position": 218
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 20,
+        "price": 5.9,
+        "hs_code": "4016930005",
+        "position": 219
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 8,
+        "price": 4.3,
+        "hs_code": "4016930005",
+        "position": 220
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 8,
+        "price": 4.3,
+        "hs_code": "4016930005",
+        "position": 221
+      },
+      {
+        "description": "O - Ring",
+        "quantity": 10,
+        "price": 5.88,
+        "hs_code": "4016930005",
+        "position": 222
+      },
+      {
+        "description": "Screw",
+        "quantity": 100,
+        "price": 3.78,
+        "hs_code": "7318159008",
+        "position": 223
+      },
+      {
+        "description": "Screw",
+        "quantity": 100,
+        "price": 3.65,
+        "hs_code": "7318190008",
+        "position": 224
+      },
+      {
+        "description": "Bolt",
+        "quantity": 30,
+        "price": 3.13,
+        "hs_code": null,
+        "position": 225
+      }
+    ],
+    "count": 225
+  }
+}

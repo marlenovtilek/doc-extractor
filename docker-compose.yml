@@ -7,6 +7,8 @@ services:
     stdin_open: true
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     tty: true
     volumes:
       - .:/app

@@ -10,13 +10,12 @@ class ExtractionRequest(BaseModel):
 
 
 class ExtractionResponse(BaseModel):
+    """Simplified response for extraction API."""
     status: str
     document_code: str
-    result_type: str
-    document_schema: dict[str, Any]
-    data: dict[str, Any]
-    model_id: str
-    items: list[dict[str, Any]]
-    count: int
-    metrics: dict[str, Any]
+    duration: float
     error: str
+    data: dict[str, Any]
+    result_type: str | None = None
+    model_id: str | None = None
+    metrics: dict[str, Any] | None = None

@@ -8,11 +8,9 @@ from extractor.config.runtime import get_runtime_settings
 from extractor.contracts.schemas import ExtractionRequest, ExtractionResponse
 from extractor.documents.registry import list_document_definitions
 from extractor.integrations.providers import (
-    get_display_model_alias,
-    get_display_model_family,
     get_provider_statuses,
     list_model_families,
-    list_model_profiles,
+    resolve_model_target
 )
 from extractor.services.extraction import execute_extraction_request
 from extractor.services.health import get_health_status
@@ -29,7 +27,10 @@ app = FastAPI(
     version="0.1.0",
     description="Stateless extraction API for OCR document parsing.",
 )
+
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+# Поля, которые мы скрываем только в публичном API, но оставляем в Web UI
 _API_HIDDEN_ITEM_FIELDS = frozenset(
     {
         "parsing_confidence",
@@ -37,11 +38,8 @@ _API_HIDDEN_ITEM_FIELDS = frozenset(
         "review_priority",
         "review_reason_count",
         "review_notes",
-        "part_no",
-        "position",
     }
 )
-
 
 async def require_api_token(
     credentials: HTTPAuthorizationCredentials | None = Security(_bearer_scheme),
@@ -59,7 +57,8 @@ async def require_api_token(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home() -> str:
+async def home() -> HTMLResponse:
+    # Вызывает нашу новую динамическую страницу
     return render_home_page()
 
 
@@ -73,65 +72,75 @@ def _health_payload() -> dict:
 
 
 def _meta_payload() -> dict[str, Any]:
+    """Формирует мета-данные для фронтенда на основе новых динамических функций."""
     runtime = get_runtime_settings()
     documents = list_document_definitions()
+    families = list_model_families()
+    
     return {
         "documents": documents,
-        "models": list_model_profiles(),
-        "model_families": list_model_families(),
+        "model_families": families,
         "providers": get_provider_statuses(),
         "defaults": {
-            "document_code": documents[0]["document_code"],
-            "model_family": get_display_model_family(runtime.llm_model_primary),
-            "model": get_display_model_alias(runtime.llm_model_primary),
-            "fallback_model": get_display_model_alias(runtime.llm_model_fallback),
+            "document_code": documents[0]["document_code"] if documents else "04021",
+            "model": runtime.llm_model_primary,
+            "fallback_model": runtime.llm_model_fallback,
         },
     }
 
 
-def _filter_public_api_item(item: Any) -> Any:
-    if not isinstance(item, dict):
-        return item
-    return {
-        key: value
-        for key, value in item.items()
-        if key not in _API_HIDDEN_ITEM_FIELDS
-    }
-
-
-def _filter_public_api_schema(schema: Any) -> Any:
-    if not isinstance(schema, dict):
-        return schema
-
-    filtered = dict(schema)
-    item_fields = filtered.get("item_fields")
-    if isinstance(item_fields, list):
-        filtered["item_fields"] = [
-            field
-            for field in item_fields
-            if not (
-                isinstance(field, dict)
-                and field.get("name") in _API_HIDDEN_ITEM_FIELDS
-            )
-        ]
-    return filtered
-
-
 def _filter_public_api_response(response: dict[str, Any]) -> dict[str, Any]:
-    filtered = dict(response)
-    filtered["document_schema"] = _filter_public_api_schema(filtered.get("document_schema"))
+    """Упрощает ответ для публичного API (удаляет метаданные чанкинга и т.д.)."""
+    data = dict(response.get("data", {}))
+    items = data.get("items", [])
+    
+    # Фильтруем скрытые поля в товарах
+    if isinstance(items, list):
+        filtered_items = []
+        for item in items:
+            filtered_items.append({
+                k: v for k, v in item.items() if k not in _API_HIDDEN_ITEM_FIELDS
+            })
+        data["items"] = filtered_items
 
-    data = filtered.get("data")
-    if isinstance(data, dict):
-        filtered_data = dict(data)
-        items = filtered_data.get("items", [])
-        if isinstance(items, list):
-            filtered_items = [_filter_public_api_item(item) for item in items]
-            filtered_data["items"] = filtered_items
-            filtered["items"] = filtered_items
-            filtered["count"] = filtered_data.get("count", len(filtered_items))
-        filtered["data"] = filtered_data
-    return filtered
+    filtered_response = {
+        "status": response.get("status", "unknown"),
+        "document_code": response.get("document_code", ""),
+        "duration": response.get("duration", 0.0),
+        "error": response.get("error", ""),
+        "data": data,
+    }
+    for key in ("result_type", "model_id", "metrics"):
+        if key in response:
+            filtered_response[key] = response[key]
+    return filtered_response
+
+
+def _classify_error_status(error_detail: str) -> int:
+    lowered = error_detail.lower()
+    if "rate limit" in lowered or "too many requests" in lowered or "429" in lowered:
+        return 429
+    if "timed out" in lowered or "timeout" in lowered:
+        return 504
+    if "network error" in lowered:
+        return 503
+    if "request failed for model" in lowered:
+        return 502
+    if (
+        "unsupported" in lowered
+        or "empty ocr text" in lowered
+        or "empty model id" in lowered
+        or "no models configured" in lowered
+    ):
+        return 400
+    if (
+        "failed to parse structured response" in lowered
+        or "no invoice items extracted" in lowered
+        or "no fields extracted" in lowered
+        or "extraction failed for both primary and fallback models" in lowered
+    ):
+        return 422
+    return 500
 
 
 def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) -> dict[str, Any]:
@@ -141,17 +150,26 @@ def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) ->
             ocr_draft=payload.ocr_draft,
             model=payload.model,
         )
+        
+        if response.get("status") == "failed":
+            # Пробрасываем ошибку из хэндлера
+            error_detail = response.get("error", "Extraction failed")
+            raise HTTPException(status_code=_classify_error_status(error_detail), detail=error_detail)
+
+        if public_api:
+            return _filter_public_api_response(response)
+        
+        return response
+
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc))
+    except HTTPException:
+        raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-    if response["status"] == "failed":
-        raise HTTPException(status_code=500, detail=response["error"])
-
-    if public_api:
-        return _filter_public_api_response(response)
-    return response
+        # Логируем критические ошибки сервера
+        import logging
+        logging.error(f"Critical error during extraction: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error during extraction")
 
 
 @app.get("/api/health/")
@@ -184,8 +202,11 @@ async def web_meta() -> dict[str, Any]:
 
 @app.post("/web/extract/", response_model=ExtractionResponse, include_in_schema=False)
 async def web_extract_document(payload: ExtractionRequest) -> dict[str, Any]:
+    # Web-версия получает полный ответ (без фильтрации полей)
     return _extract_payload(payload, public_api=False)
 
+
+# --- JOB MANAGEMENT (Оставляем без изменений, они используют общие сервисы) ---
 
 @app.post("/web/jobs/", include_in_schema=False)
 async def web_create_job(payload: ExtractionRequest) -> dict[str, Any]:
@@ -196,20 +217,20 @@ async def web_create_job(payload: ExtractionRequest) -> dict[str, Any]:
             model=payload.model,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/web/jobs/{job_id}/", include_in_schema=False)
 async def web_get_job(job_id: str) -> dict[str, Any]:
     try:
         return get_web_extraction_job(job_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown job_id '{job_id}'.") from exc
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown job_id '{job_id}'.")
 
 
 @app.post("/web/jobs/{job_id}/cancel/", include_in_schema=False)
 async def web_cancel_job(job_id: str) -> dict[str, Any]:
     try:
         return cancel_web_extraction_job(job_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Unknown job_id '{job_id}'.") from exc
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown job_id '{job_id}'.")

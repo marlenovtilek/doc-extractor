@@ -135,23 +135,19 @@ Supporting web endpoints:
 
 ## Supported Models
 
-Aliases:
-- `cerebras` -> `gpt-oss-120b`
-- `gemini` -> `gemini-2.5-flash`
-- `gemini-flash` -> `gemini-2.5-flash`
-- `gemini-pro` -> `gemini-2.5-pro`
-- `openai` -> `OPENAI_MODEL_DEFAULT`
-- `ollama` -> `OLLAMA_MODEL_DEFAULT`
+Provider catalogs come from `.env`:
+- `GEMINI_MODELS`
+- `GPT_MODELS`
+- `OLLAMA_MODELS`
+- `CEREBRAS_MODELS`
 
 You can also pass:
 - a raw model id when the provider can be inferred, for example `gpt-4o-mini`, `gemini-2.5-flash`, `qwen2.5:7b`
 - an explicit provider spec: `provider::model_id`
 
 Examples:
-- `cerebras`
 - `gemini`
-- `gemini-flash`
-- `gemini-pro`
+- `openai`
 - `gemini::gemini-2.5-pro`
 - `openai::gpt-4o-mini`
 - `ollama::mistral:7b`
@@ -186,30 +182,17 @@ Main variables:
 - `DOC_EXTRACTOR_API_TOKEN`
 - `LLM_MODEL_PRIMARY`
 - `LLM_MODEL_FALLBACK`
-- `MODEL_AUTO_ROUTE`
-- `MODEL_AUTO_ROUTE_SMALL_DOC`
-- `MODEL_AUTO_ROUTE_LARGE_TABLE`
-- `MODEL_AUTO_ROUTE_OBJECT_DEFAULT`
-- `AUTO_ROUTE_CHAR_THRESHOLD`
-- `AUTO_ROUTE_PIPE_ROW_THRESHOLD`
+- `GEMINI_MODELS`
+- `GPT_MODELS`
+- `OLLAMA_MODELS`
+- `CEREBRAS_MODELS`
 - `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
-- `OPENAI_ORGANIZATION`
-- `OPENAI_MODEL_DEFAULT`
 - `OLLAMA_BASE_URL`
-- `OLLAMA_API_KEY`
-- `OLLAMA_MODEL_DEFAULT`
 - `OLLAMA_TIMEOUT_S`
 - `CEREBRAS_BASE_URL`
 - `CEREBRAS_API_KEY`
-- `LANGEXTRACT_API_KEY`
-- `LLM_MAX_WORKERS_CEREBRAS`
-- `LLM_MAX_CHAR_BUFFER_CEREBRAS`
-- `CEREBRAS_MAX_RETRIES`
-- `CEREBRAS_RETRY_BASE_DELAY_S`
+- `GEMINI_API_KEY`
 - `LLM_MAX_CHAR_BUFFER`
-- `LLM_MAX_WORKERS_GEMINI`
-- `LLM_MAX_WORKERS_OPENAI`
 - `WEB_JOB_MAX_WORKERS`
 - `WEB_JOB_RETENTION_S`
 - `WEB_JOB_MAX_STORED`
@@ -218,14 +201,7 @@ Main variables:
 ## Tests
 
 ```bash
-python -m unittest discover -s tests -p 'test_*.py'
-```
-
-Useful focused suites:
-
-```bash
-python -m unittest tests.test_invoice_handler tests.test_postprocess -v
-python -m unittest tests.test_job_service tests.test_fastapi -v
+python -m compileall app extractor
 ```
 
 ## Integration With docai

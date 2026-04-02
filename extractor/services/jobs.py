@@ -35,6 +35,8 @@ class ExtractionJob:
     error: str = ""
 
     def to_dict(self) -> dict[str, Any]:
+        metrics = self.result.get("metrics", {}) if isinstance(self.result, dict) else {}
+        execution = metrics.get("execution", {}) if isinstance(metrics, dict) else {}
         return {
             "job_id": self.job_id,
             "status": self.status,
@@ -47,6 +49,9 @@ class ExtractionJob:
             "cancel_requested": self.cancel_requested,
             "result": self.result,
             "error": self.error,
+            "result_model_id": self.result.get("model_id") if isinstance(self.result, dict) else None,
+            "final_provider": execution.get("final_provider"),
+            "fallback_used": bool(execution.get("fallback_used")),
         }
 
 

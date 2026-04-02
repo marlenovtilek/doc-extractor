@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose restart)",
+      "Bash(docker compose logs *)",
+      "Bash(python3 *)",
+      "Bash(rm *)",
+      "Bash(sleep *)",
+      "Bash(docker compose down)",
+      "Bash(docker compose up *)",
+      "Bash(curl *)",
+      "Bash(ls *)",
+      "Bash(docker exec *)",
+      "Bash(docker logs *)",
+      "Bash(ssh *)",
+      "Bash(timeout *)",
+      "Bash(docker ps)",
+      "Bash(sed *)"
+    ]
+  },
+  "$version": 3
+}

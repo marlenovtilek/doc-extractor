@@ -1,317 +1,119 @@
-from __future__ import annotations
-
-import html
-import re
 import time
-from datetime import datetime
+import json
+import re
+import logging
 from typing import Any
-
-import langextract as lx
+from concurrent.futures import ThreadPoolExecutor
 
 from ..base import DocumentFieldSchema, DocumentHandler, DocumentSchema
-from ...integrations.providers import extract_with_langextract_entities, resolve_model_target
-from ...observability.metrics import RunMetrics, compute_field_fill_rates, timer
+from ...config.runtime import get_runtime_settings
+from ...integrations.llm import get_llm_provider
+from ...integrations.providers import build_model_spec, resolve_model_target
+from ..invoice.invoice_utils import clean_invoice_text
 
+logger = logging.getLogger(__name__)
 
-TD_EXTRACTION_PROMPT = """
-# ROLE
-You are an expert technical-document data extractor.
+# --- ПРОМПТ (Твой оригинальный, адаптированный под JSON Mode) ---
+TD_SYSTEM_PROMPT = """You are an expert technical-document data extractor.
+Extract structured data for ALL products/items listed in the OCR text.
 
-# TASK
-You are given OCR text from a Technical Specification document. The text may have
-mixed formats, irregular structure, and OCR artifacts.
+=== FIELDS TO EXTRACT ===
+- product_name: item name
+- technical_description: description as a single string (if key-value, convert to multiline text)
+- hs_code: HS code or null
+- model: model/article/SKU
+- country_origin: manufacturer country
+- document_date: normalize to DD/MM/YYYY; if not found use NO_DATE_FOUND
+- document_number: if not found set null
 
-Extract structured data for ALL products/items listed in the document.
-
-For each product found, extract:
-- `product_name` — product/item name
-- `technical_description` — technical description as a single string
-- `hs_code` — HS code, if not found set null
-- `model` — model / article / SKU
-- `country_origin` — manufacturer or country of origin
-- `document_date` — document date, normalize to DD/MM/YYYY when possible; if not
-  found use exactly `NO_DATE_FOUND`
-- `document_number` — document number, if not found set null
-
-# RULES
-- Ignore headers, footers, signatures, stamps, and decorative boilerplate.
-- Normalize dates when possible.
-- If a field cannot be found for a specific item, set it to null.
-- `technical_description` must always be a single plain string, never an object.
-- If specifications are key-value, convert them to plain multiline text.
-- Keep original source language.
+=== RULES ===
+1. NO Hallucinations: Only extract what is visible.
+2. NO Translation: Keep names and descriptions in the original language.
+3. FORMAT: Return ONLY a JSON object with a single key "items" containing the array of objects.
+4. If no items found, return {"items": []}.
 """
 
-TD_EXAMPLES = [
-    lx.data.ExampleData(
-        text=(
-            "Technical Specification No. TD-55\n"
-            "Date: 09/10/2025\n"
-            "1. Product: Pressure Sensor PS-200\n"
-            "Specifications: Range 0-10 bar; Material stainless steel; Output 4-20mA\n"
-            "HS code: 9026202000\n"
-            "Origin: Germany\n"
-        ),
-        extractions=[
-            lx.data.Extraction(
-                extraction_class="technical_document_item",
-                extraction_text="Pressure Sensor PS-200",
-                attributes={
-                    "product_name": "Pressure Sensor PS-200",
-                    "technical_description": "Range: 0-10 bar\nMaterial: stainless steel\nOutput: 4-20mA",
-                    "hs_code": "9026202000",
-                    "model": "PS-200",
-                    "country_origin": "Germany",
-                    "document_date": "09/10/2025",
-                    "document_number": "TD-55",
-                },
-            )
-        ],
-    ),
-    lx.data.ExampleData(
-        text=(
-            "SPECIFICATION REF. TS-88/24\n"
-            "Issued on 2024-11-18\n"
-            "Item: Cable Gland M20\n"
-            "Description: Polyamide cable gland for industrial cabinet assembly\n"
-            "Country of origin: China\n"
-        ),
-        extractions=[
-            lx.data.Extraction(
-                extraction_class="technical_document_item",
-                extraction_text="Cable Gland M20",
-                attributes={
-                    "product_name": "Cable Gland M20",
-                    "technical_description": "Polyamide cable gland for industrial cabinet assembly",
-                    "hs_code": None,
-                    "model": "M20",
-                    "country_origin": "China",
-                    "document_date": "18/11/2024",
-                    "document_number": "TS-88/24",
-                },
-            )
-        ],
-    ),
-]
 
-TD_ITEM_FIELDS = (
-    "product_name",
-    "technical_description",
-    "hs_code",
-    "model",
-    "country_origin",
-    "document_date",
-    "document_number",
-)
+def validate_technical_document_response(llm_response: str) -> tuple[bool, str, list[dict[str, Any]]]:
+    if not llm_response:
+        return False, "Empty response", []
 
+    text = str(llm_response).strip()
+    text = re.sub(r'^[^{}\[\]]*', '', text)
 
-def clean_technical_document_text(ocr_draft: str) -> str:
-    text = html.unescape(ocr_draft or "")
-    if not text.strip():
-        return ""
-
-    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?i)</?(p|div|span|table|tbody|thead|tr|td|th)\b[^>]*>", " ", text)
-    text = re.sub(r"</?[^>]+>", " ", text)
-    text = text.replace("**", " ")
-    text = text.replace("\xa0", " ")
-
-    lines: list[str] = []
-    for raw_line in text.splitlines():
-        line = re.sub(r"\s+", " ", raw_line).strip(" \t|")
-        if not line:
-            continue
-        if lines and line == lines[-1]:
-            continue
-        lines.append(line)
-    return "\n".join(lines).strip()
-
-
-def _td_to_text(value: object) -> str | None:
-    if value is None:
-        return None
-    if isinstance(value, (str, int, float, bool)):
-        text = re.sub(r"[ \t]+", " ", str(value)).strip()
-        return text or None
-    return None
-
-
-def _td_flatten_to_lines(value: object, lines: list[str], parent_key: str = "") -> None:
-    if value is None:
-        return
-    if isinstance(value, dict):
-        for key, inner_value in value.items():
-            key_text = _td_to_text(key) or parent_key
-            if isinstance(inner_value, (dict, list)):
-                _td_flatten_to_lines(inner_value, lines, key_text)
-            else:
-                value_text = _td_to_text(inner_value)
-                if value_text:
-                    lines.append(f"{key_text}: {value_text}" if key_text else value_text)
-        return
-    if isinstance(value, list):
-        for inner_value in value:
-            if isinstance(inner_value, (dict, list)):
-                _td_flatten_to_lines(inner_value, lines, parent_key)
-            else:
-                value_text = _td_to_text(inner_value)
-                if value_text:
-                    lines.append(f"{parent_key}: {value_text}" if parent_key else value_text)
-        return
-    value_text = _td_to_text(value)
-    if value_text:
-        lines.append(f"{parent_key}: {value_text}" if parent_key else value_text)
-
-
-def _td_description_to_text(value: object) -> str | None:
-    scalar = _td_to_text(value)
-    if scalar is not None:
-        return scalar
-    if isinstance(value, (dict, list)):
-        lines: list[str] = []
-        _td_flatten_to_lines(value, lines)
-        text = "\n".join(line for line in lines if line.strip()).strip()
-        return text or None
-    return None
-
-
-def _td_normalize_date(value: object) -> str:
-    text = _td_to_text(value)
-    if not text or text.upper() == "NO_DATE_FOUND":
-        return datetime.now().strftime("%d/%m/%Y")
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
+    parsed_data: Any
+    parsed_error = ""
+    match_arr = re.search(r'\[.*\]', text, re.DOTALL)
+    if match_arr:
         try:
-            return datetime.strptime(text, fmt).strftime("%d/%m/%Y")
-        except ValueError:
+            parsed_data = json.loads(match_arr.group(0))
+        except json.JSONDecodeError as exc:
+            parsed_data = None
+            parsed_error = str(exc)
+    else:
+        match_obj = re.search(r'\{.*\}', text, re.DOTALL)
+        if match_obj:
+            try:
+                payload = json.loads(match_obj.group(0))
+                parsed_data = payload.get("items", payload) if isinstance(payload, dict) else payload
+            except json.JSONDecodeError as exc:
+                parsed_data = None
+                parsed_error = str(exc)
+        else:
+            parsed_data = None
+
+    if parsed_data is None:
+        if len(text) < 200:
+            return False, "Model returned a non-JSON refusal or empty text.", []
+        return False, f"JSON Parse Error: {parsed_error or 'no JSON object found'}", []
+
+    if not isinstance(parsed_data, list):
+        parsed_data = [parsed_data]
+
+    if not parsed_data:
+        return True, "", []
+
+    valid_items: list[dict[str, Any]] = []
+    for item in parsed_data:
+        if not isinstance(item, dict):
             continue
-    compact = re.search(r"(\d{1,2})[./-](\d{1,2})[./-](\d{4})", text)
-    if compact:
-        day, month, year = compact.groups()
-        return f"{int(day):02d}/{int(month):02d}/{year}"
-    return text
 
+        product_name = str(
+            item.get("product_name")
+            or item.get("description")
+            or ""
+        ).strip()
+        technical_description = str(
+            item.get("technical_description")
+            or item.get("description")
+            or ""
+        ).strip()
 
-def _resolve_td_model(model_id: str | None):
-    from ...config.runtime import get_runtime_settings
+        if not product_name and not technical_description:
+            continue
 
-    runtime = get_runtime_settings()
-    primary_model = resolve_model_target(model_id)
-    if primary_model.provider != "cerebras":
-        return primary_model, False
+        if product_name:
+            item["product_name"] = re.sub(r"\s+", " ", product_name)
+        else:
+            item["product_name"] = None
 
-    fallback_model = resolve_model_target(runtime.llm_model_fallback)
-    if fallback_model.provider == "cerebras":
-        raise ValueError(
-            "Technical document extraction requires a LangExtract-backed model "
-            "(gemini, openai, or ollama)."
-        )
-    return fallback_model, True
+        if technical_description:
+            item["technical_description"] = re.sub(r"\s+", " ", technical_description)
+        else:
+            item["technical_description"] = None
 
+        hs_code = item.get("hs_code")
+        if str(hs_code).strip().lower() in {"none", "null", ""}:
+            item["hs_code"] = None
 
-def _normalize_td_items(extractions: list[dict[str, object]]) -> list[dict[str, object]]:
-    items: list[dict[str, object]] = []
-    for extraction in extractions:
-        attributes = extraction.get("attributes") or {}
-        if not isinstance(attributes, dict):
-            attributes = {}
+        valid_items.append(item)
 
-        item: dict[str, object] = {field: None for field in TD_ITEM_FIELDS}
-        item.update(attributes)
-        item["product_name"] = _td_to_text(item.get("product_name")) or _td_to_text(
-            extraction.get("extraction_text")
-        )
-        item["technical_description"] = _td_description_to_text(item.get("technical_description"))
-        item["hs_code"] = _td_to_text(item.get("hs_code"))
-        item["model"] = _td_to_text(item.get("model"))
-        item["country_origin"] = _td_to_text(item.get("country_origin"))
-        item["document_date"] = _td_normalize_date(item.get("document_date"))
-        item["document_number"] = _td_to_text(item.get("document_number"))
-
-        if item["product_name"] or item["technical_description"]:
-            items.append(item)
-    return items
-
-
-def _validate_td_items(items: list[dict[str, object]]) -> tuple[bool, str]:
-    if not items:
-        return False, "No technical document items extracted"
-    for item in items:
-        for key in TD_ITEM_FIELDS:
-            value = item.get(key)
-            if value is not None and not isinstance(value, str):
-                return False, f"'{key}' must be a string or null"
-    return True, ""
-
-
-def _build_td_fields(items: list[dict[str, object]]) -> dict[str, object]:
-    fields = {"document_number": None, "document_date": None}
-    for item in items:
-        if not fields["document_number"] and item.get("document_number"):
-            fields["document_number"] = item["document_number"]
-        if not fields["document_date"] and item.get("document_date"):
-            fields["document_date"] = item["document_date"]
-    return fields
-
-
-def run_technical_document_extraction(ocr_draft: str, model_id: str | None = None) -> dict:
-    metrics = RunMetrics()
-    t_wall_start = time.perf_counter()
-
-    with timer() as t_clean:
-        context = clean_technical_document_text(ocr_draft)
-    metrics.t_clean_s = t_clean[0]
-
-    target_model, implicit_fallback = _resolve_td_model(model_id)
-    metrics.fallback_used = implicit_fallback
-
-    if not context:
-        metrics.t_total_s = time.perf_counter() - t_wall_start
-        return {
-            "error": "Empty OCR text",
-            "metrics": metrics.to_dict(),
-            "model_id": target_model.model_id,
-        }
-
-    with timer() as t_llm:
-        extractions, _annotated_doc, usage = extract_with_langextract_entities(
-            context,
-            target_model,
-            prompt_description=TD_EXTRACTION_PROMPT,
-            examples=TD_EXAMPLES,
-        )
-    metrics.t_primary_llm_s = t_llm[0]
-    if usage:
-        metrics.token_usage["primary"] = usage
-
-    with timer() as t_validate:
-        items = _normalize_td_items(extractions)
-        is_valid, error = _validate_td_items(items)
-    metrics.t_validate_s = t_validate[0]
-    metrics.primary_valid = is_valid
-
-    if not is_valid:
-        metrics.t_total_s = time.perf_counter() - t_wall_start
-        return {
-            "error": error or "Technical document extraction failed",
-            "metrics": metrics.to_dict(),
-            "model_id": target_model.model_id,
-        }
-
-    metrics.items_extracted = len(items)
-    metrics.field_fill_rates = compute_field_fill_rates(items)
-    metrics.t_total_s = round(time.perf_counter() - t_wall_start, 3)
-
-    return {
-        "result": {"fields": _build_td_fields(items), "items": items, "count": len(items)},
-        "metrics": metrics.to_dict(),
-        "model_id": target_model.model_id,
-    }
-
+    return True, "", valid_items
 
 class TechnicalDocumentHandler(DocumentHandler):
     document_code = "09022"
     label = "Technical Document"
+    
     schema = DocumentSchema(
         result_type="table",
         fields=(
@@ -330,25 +132,204 @@ class TechnicalDocumentHandler(DocumentHandler):
     )
 
     def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
-        output = run_technical_document_extraction(ocr_draft, model_id=model or None)
-        metrics = output.get("metrics", {})
-        model_id = output.get("model_id", "")
+        runtime = get_runtime_settings()
+        t_start = time.perf_counter()
+        # Используем ту же очистку, что и в инвойсах
+        cleaned = clean_invoice_text(ocr_draft)
+        
+        target = resolve_model_target(model)
+        provider = get_llm_provider(target.provider)
+        fb_target = resolve_model_target(runtime.llm_model_fallback)
+        fb_provider = get_llm_provider(fb_target.provider)
 
-        if "error" in output:
+        final_target = target
+        fallback_used = False
+
+        # РЕШАЕМ: Целиком или чанками
+        if provider.supports_large_context:
+            logger.info(f"🚀 TD Strategy: Single-Pass ({target.model_id})")
+            single_pass_result, extraction_ok = self._extract_once(
+                f"TEXT TO PROCESS:\n{cleaned}",
+                provider,
+                target,
+                fb_provider,
+                fb_target,
+            )
+            final_items = single_pass_result["items"] if single_pass_result else []
+            if single_pass_result:
+                final_target = single_pass_result["final_target"]
+                fallback_used = single_pass_result["fallback_used"]
+        else:
+            logger.info(f"📦 TD Strategy: Chunking ({target.model_id})")
+            max_c = runtime.chunk_size_cerebras if target.provider == "cerebras" else runtime.chunk_size_default
+            chunked_result, extraction_ok = self._run_chunked_workflow(
+                cleaned,
+                provider,
+                target,
+                fb_provider,
+                fb_target,
+                max_c,
+            )
+            final_items = chunked_result["items"]
+            final_target = chunked_result["final_target"]
+            fallback_used = chunked_result["fallback_used"]
+
+        if not extraction_ok:
             return {
-                "error": output["error"],
-                "metrics": metrics,
-                "model_id": model_id,
+                "status": "failed",
+                "document_code": self.document_code,
+                "duration": round(time.perf_counter() - t_start, 3),
+                "error": "Technical document extraction failed for both primary and fallback models.",
                 "result_type": self.result_type,
-                "data": {"fields": {}, "items": [], "count": 0},
+                "model_id": None,
+                "metrics": {
+                    "execution": {
+                        "primary_model": build_model_spec(target.provider, target.model_id),
+                        "fallback_model": (
+                            build_model_spec(fb_target.provider, fb_target.model_id)
+                            if fb_target != target
+                            else None
+                        ),
+                        "final_model": None,
+                        "final_provider": None,
+                        "fallback_used": False,
+                    }
+                },
+                "data": {"fields": {"document_number": None, "document_date": None}, "items": [], "count": 0},
             }
 
-        result = output.get("result", {})
-        items = result.get("items", [])
-        fields = result.get("fields", {})
+        # Постобработка и нормализация дат
+        for i, item in enumerate(final_items, 1):
+            item["position"] = i
+            # Нормализация даты (из твоего оригинального кода)
+            item["document_date"] = self._normalize_date(item.get("document_date"))
+
+        # Собираем общие поля документа (из первого товара)
+        fields = {"document_number": None, "document_date": None}
+        if final_items:
+            fields["document_number"] = final_items[0].get("document_number")
+            fields["document_date"] = final_items[0].get("document_date")
+
         return {
-            "metrics": metrics,
-            "model_id": model_id,
+            "status": "success",
+            "document_code": self.document_code,
+            "duration": round(time.perf_counter() - t_start, 3),
             "result_type": self.result_type,
-            "data": {"fields": fields, "items": items, "count": len(items)},
+            "model_id": build_model_spec(final_target.provider, final_target.model_id),
+            "metrics": {
+                "execution": {
+                    "primary_model": build_model_spec(target.provider, target.model_id),
+                    "fallback_model": (
+                        build_model_spec(fb_target.provider, fb_target.model_id)
+                        if fb_target != target
+                        else None
+                    ),
+                    "final_model": build_model_spec(final_target.provider, final_target.model_id),
+                    "final_provider": final_target.provider,
+                    "fallback_used": fallback_used,
+                }
+            },
+            "data": {
+                "fields": fields,
+                "items": final_items,
+                "count": len(final_items)
+            }
         }
+
+    def _extract_once(self, text, provider, target, fb_provider, fb_target):
+        try:
+            raw = provider.generate(TD_SYSTEM_PROMPT, text, target.model_id)
+            is_valid, _, items = validate_technical_document_response(raw)
+            if is_valid:
+                return {"items": items, "final_target": target, "fallback_used": False}, True
+        except Exception:
+            pass
+
+        try:
+            raw = fb_provider.generate(TD_SYSTEM_PROMPT, text, fb_target.model_id)
+            is_valid, _, items = validate_technical_document_response(raw)
+            if is_valid:
+                return {"items": items, "final_target": fb_target, "fallback_used": True}, True
+        except Exception:
+            pass
+
+        return None, False
+
+    def _run_chunked_workflow(self, text, provider, target, fb_provider, fb_target, max_c):
+        # Чанкинг для Cerebras/Ollama
+        overlap = 600
+        chunks = []
+        start = 0
+        while start < len(text):
+            end = start + max_c
+            if end < len(text):
+                last_nl = text.rfind('\n', start, end)
+                if last_nl > start + 2000: end = last_nl
+            chunks.append(text[start:end])
+            start = end - overlap if end < len(text) else len(text)
+
+        all_items = []
+        any_chunk_succeeded = False
+        final_target = target
+        fallback_used = False
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [
+                executor.submit(
+                    self._process_single_chunk,
+                    c,
+                    provider,
+                    target,
+                    fb_provider,
+                    fb_target,
+                )
+                for c in chunks
+            ]
+            for f in futures:
+                chunk_items, chunk_ok, chunk_target, chunk_fallback_used = f.result()
+                any_chunk_succeeded = any_chunk_succeeded or chunk_ok
+                all_items.extend(chunk_items)
+                if chunk_target is not None and chunk_fallback_used:
+                    final_target = chunk_target
+                    fallback_used = True
+        
+        # Дедупликация (по имени и модели)
+        unique = []
+        seen = set()
+        for it in all_items:
+            slug = f"{str(it.get('product_name')).lower()}_{it.get('model')}"
+            if slug not in seen:
+                unique.append(it)
+                seen.add(slug)
+        return {
+            "items": unique,
+            "final_target": final_target,
+            "fallback_used": fallback_used,
+        }, any_chunk_succeeded
+
+    def _process_single_chunk(self, chunk, provider, target, fb_provider, fb_target):
+        try:
+            raw = provider.generate(TD_SYSTEM_PROMPT, chunk, target.model_id)
+            is_valid, _, items = validate_technical_document_response(raw)
+            if is_valid:
+                return items, True, target, False
+        except Exception:
+            pass
+        try:
+            raw = fb_provider.generate(TD_SYSTEM_PROMPT, chunk, fb_target.model_id)
+            is_valid, _, items = validate_technical_document_response(raw)
+            if is_valid:
+                return items or [], True, fb_target, True
+        except Exception:
+            pass
+        return [], False, None, False
+
+    def _normalize_date(self, val):
+        if not val or str(val).upper() == "NO_DATE_FOUND":
+            return None
+        # Простая нормализация через регулярку
+        match = re.search(r"(\d{1,2})[./-](\d{1,2})[./-](\d{4})", str(val))
+        if match:
+            d, m, y = match.groups()
+            return f"{int(d):02d}/{int(m):02d}/{y}"
+        return str(val)

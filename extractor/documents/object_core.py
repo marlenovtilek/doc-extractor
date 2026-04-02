@@ -1,365 +1,188 @@
-from __future__ import annotations
-
-from datetime import datetime
-import html
-import re
 import time
+import re
+import logging
+import json
 from typing import Any
-
-import langextract as lx
+from datetime import datetime
 
 from .base import DocumentFieldSchema, DocumentHandler, DocumentSchema
 from ..config.runtime import get_runtime_settings
-from ..integrations.providers import extract_with_langextract_entities, resolve_model_target
-from ..observability.metrics import RunMetrics, timer
+from ..integrations.llm import get_llm_provider
+from ..integrations.providers import build_model_spec, resolve_model_target
+from .invoice.invoice_utils import clean_invoice_text
 
+logger = logging.getLogger(__name__)
 
-TRACKED_SIMPLE_DOCUMENT_FIELDS = (
-    "document_number",
-    "document_date",
-    "description",
-)
+# Константа, которую ищут другие файлы
+TRACKED_SIMPLE_DOCUMENT_FIELDS = ("document_number", "document_date", "description")
 
-SIMPLE_DOCUMENT_PROMPT = """
-# ROLE
-You are an expert legal-document data extractor.
+SIMPLE_DOCUMENT_PROMPT = """You are an expert legal-document data extractor.
+Extract fields from the OCR text into a structured JSON object.
 
-# TASK
-You are given OCR text from a document in English or Russian. The text may
-have mixed formats, irregular structure, and OCR artifacts.
+=== FIELDS TO EXTRACT ===
+{fields_description}
 
-Extract the following fields:
-- `document_number` — the official number, reference, or identifier of the document (if any)
-- `document_date` — the date of the document (normalize to DD/MM/YYYY if possible)
-- `description` — {desc_instruction}
-
-# RULES
-- Ignore headers, footers, signatures, stamps, and irrelevant boilerplate text.
-- Normalize dates whenever possible.
-- Remove decorative symbols, repeated whitespace, and formatting artifacts.
-- If a field cannot be found, set it to null.
-- Return only relevant extractions.
+=== RULES ===
+1. NO Hallucinations: Only extract what is visible.
+2. NO Translation: Keep descriptions in the original language (Russian).
+3. FORMAT: Return ONLY a raw JSON object.
+4. If a field is not found, set it to null.
 """
 
-
-def clean_object_text(ocr_draft: str) -> str:
-    """Normalize OCR text for object-style extraction."""
-    text = html.unescape(ocr_draft or "")
-    if not text.strip():
-        return ""
-
-    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
-    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
-    text = re.sub(r"(?i)</?(p|div|span|table|tbody|thead|tr|td|th)\b[^>]*>", " ", text)
-    text = re.sub(r"</?[^>]+>", " ", text)
-    text = text.replace("**", " ")
-
-    lines: list[str] = []
-    for raw_line in text.splitlines():
-        line = re.sub(r"\s+", " ", raw_line).strip(" \t|")
-        if not line:
-            continue
-        if lines and line == lines[-1]:
-            continue
-        lines.append(line)
-
-    return "\n".join(lines).strip()
-
-
 def normalize_object_date(value: str | None) -> str | None:
-    """Normalize a date into DD/MM/YYYY when possible."""
-    text = (value or "").strip()
-    if not text:
-        return None
-
-    direct_formats = (
-        "%d/%m/%Y",
-        "%d.%m.%Y",
-        "%Y-%m-%d",
-        "%d-%m-%Y",
-        "%d %B %Y",
-        "%d %b %Y",
-    )
-    for fmt in direct_formats:
+    text = str(value or "").strip()
+    if not text: return None
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d-%m-%Y"):
         try:
             return datetime.strptime(text, fmt).strftime("%d/%m/%Y")
-        except ValueError:
-            continue
-
+        except ValueError: continue
     compact = re.search(r"(\d{1,2})[./-](\d{1,2})[./-](\d{4})", text)
     if compact:
-        day, month, year = compact.groups()
-        return f"{int(day):02d}/{int(month):02d}/{year}"
-
+        d, m, y = compact.groups()
+        return f"{int(d):02d}/{int(m):02d}/{y}"
     return text
 
-
-def aggregate_object_fields(
-    extractions: list[dict[str, object]],
-    tracked_fields: tuple[str, ...],
-    *,
-    array_fields: tuple[str, ...] = (),
-    default_current_date_if_missing: bool = False,
-) -> dict[str, object]:
-    """Aggregate LangExtract entities into a single object-style document."""
-    fields: dict[str, object] = {name: None for name in tracked_fields}
-    arrays: dict[str, list[str]] = {name: [] for name in array_fields}
-
-    for extraction in extractions:
-        extraction_class = str(extraction.get("extraction_class") or "").strip()
-        extraction_text = str(extraction.get("extraction_text") or "").strip()
-        if not extraction_class or not extraction_text:
-            continue
-
-        if extraction_class in arrays:
-            if extraction_text not in arrays[extraction_class]:
-                arrays[extraction_class].append(extraction_text)
-            continue
-
-        if extraction_class in fields and not fields[extraction_class]:
-            fields[extraction_class] = extraction_text
-
-    if "document_date" in fields:
-        normalized_date = normalize_object_date(fields.get("document_date"))  # type: ignore[arg-type]
-        if normalized_date is None and default_current_date_if_missing:
-            normalized_date = datetime.now().strftime("%d/%m/%Y")
-        fields["document_date"] = normalized_date
-
-    for name, values in arrays.items():
-        fields[name] = values or None
-    return fields
+def extract_json_object(text: str) -> dict:
+    try:
+        clean_json = re.sub(r'^[^{]*', '', text)
+        clean_json = re.sub(r'[^}]*$', '', clean_json)
+        return json.loads(clean_json)
+    except: return {}
 
 
-def validate_object_fields(
-    fields: dict[str, object],
-    tracked_fields: tuple[str, ...],
-    *,
-    array_fields: tuple[str, ...] = (),
-    empty_error: str,
-) -> tuple[bool, str]:
-    """Validate a normalized object-style document."""
-    if not fields:
-        return False, empty_error
-
-    if not any(fields.get(name) for name in tracked_fields):
-        return False, empty_error
-
-    for key in array_fields:
-        value = fields.get(key)
-        if value is not None:
-            if not isinstance(value, list):
-                return False, f"'{key}' must be a list or null"
-            if any(not isinstance(item, str) for item in value):
-                return False, f"'{key}' must contain only strings"
-
-    for key in tracked_fields:
-        if key in array_fields:
-            continue
-        value = fields.get(key)
-        if value is not None and not isinstance(value, str):
-            return False, f"'{key}' must be a string or null"
-
-    return True, ""
-
-
-def compute_object_field_fill_rates(
-    fields: dict[str, object],
-    tracked_fields: tuple[str, ...],
-) -> dict[str, float]:
-    """Return per-field fill rates for object-style extraction."""
-    rates: dict[str, float] = {}
-    for name in tracked_fields:
-        value = fields.get(name)
-        if isinstance(value, list):
-            rates[name] = 1.0 if value else 0.0
-        else:
-            rates[name] = 1.0 if value not in (None, "", "null", "none") else 0.0
-    return rates
-
-
-def _resolve_object_model(model_id: str | None, *, label: str):
-    runtime = get_runtime_settings()
-    primary_model = resolve_model_target(model_id)
-    if primary_model.provider != "cerebras":
-        return primary_model, False
-
-    fallback_model = resolve_model_target(runtime.llm_model_fallback)
-    if fallback_model.provider == "cerebras":
-        raise ValueError(
-            f"{label} extraction requires a LangExtract-backed model "
-            "(gemini, openai, or ollama)."
-        )
-    return fallback_model, True
-
-
-def run_object_document_extraction(
-    ocr_draft: str,
-    *,
-    model_id: str | None,
-    prompt: str,
-    examples: list[lx.data.ExampleData],
-    tracked_fields: tuple[str, ...],
-    array_fields: tuple[str, ...] = (),
-    default_current_date_if_missing: bool = False,
-    empty_error: str,
-    label: str,
-) -> dict:
-    """Shared object-style extraction flow for non-tabular documents."""
-    metrics = RunMetrics()
-    t_wall_start = time.perf_counter()
-
-    with timer() as t_clean:
-        context = clean_object_text(ocr_draft)
-    metrics.t_clean_s = t_clean[0]
-
-    target_model, implicit_fallback = _resolve_object_model(model_id, label=label)
-    metrics.fallback_used = implicit_fallback
-
-    if not context:
-        metrics.t_total_s = time.perf_counter() - t_wall_start
-        return {
-            "error": "Empty OCR text",
-            "metrics": metrics.to_dict(),
-            "model_id": target_model.model_id,
-        }
-
-    with timer() as t_llm:
-        extractions, _annotated_doc, usage = extract_with_langextract_entities(
-            context,
-            target_model,
-            prompt_description=prompt,
-            examples=examples,
-        )
-    metrics.t_primary_llm_s = t_llm[0]
-    if usage:
-        metrics.token_usage["primary"] = usage
-
-    with timer() as t_validate:
-        fields = aggregate_object_fields(
-            extractions,
-            tracked_fields,
-            array_fields=array_fields,
-            default_current_date_if_missing=default_current_date_if_missing,
-        )
-        is_valid, error = validate_object_fields(
-            fields,
-            tracked_fields,
-            array_fields=array_fields,
-            empty_error=empty_error,
-        )
-    metrics.t_validate_s = t_validate[0]
-    metrics.primary_valid = is_valid
-
-    if not is_valid:
-        metrics.t_total_s = time.perf_counter() - t_wall_start
-        return {
-            "error": error or f"{label} extraction failed",
-            "metrics": metrics.to_dict(),
-            "model_id": target_model.model_id,
-        }
-
-    metrics.field_fill_rates = compute_object_field_fill_rates(fields, tracked_fields)
-    metrics.t_total_s = round(time.perf_counter() - t_wall_start, 3)
-
-    return {
-        "result": {"fields": fields, "items": [], "count": 0},
-        "metrics": metrics.to_dict(),
-        "model_id": target_model.model_id,
-    }
-
+def _has_meaningful_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() not in {"", "null", "none"}
+    return True
 
 class BaseObjectHandler(DocumentHandler):
-    """Thin adapter to expose object-style pipelines through the registry."""
+    def _build_final_fields(self, extracted_data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+        final_fields: dict[str, Any] = {}
+        has_meaningful_model_value = False
 
-    def _empty_fields(self) -> dict[str, object]:
-        return {field.name: None for field in self.schema.fields}
+        for f in self.schema.fields:
+            raw_val = extracted_data.get(f.name)
+            if _has_meaningful_value(raw_val):
+                has_meaningful_model_value = True
 
-    def _wrap_object_output(self, output: dict[str, Any]) -> dict[str, Any]:
-        metrics = output.get("metrics", {})
-        model_id = output.get("model_id", "")
+            val = raw_val
+            if f.name == "document_date":
+                val = normalize_object_date(val)
+                if not val and getattr(self, "default_current_date_if_missing", False):
+                    val = datetime.now().strftime("%d/%m/%Y")
+            final_fields[f.name] = val
 
-        if "error" in output:
-            return {
-                "error": output["error"],
-                "metrics": metrics,
-                "model_id": model_id,
-                "result_type": self.result_type,
-                "data": {"fields": self._empty_fields(), "items": [], "count": 0},
-            }
-
-        result = output.get("result", {})
-        fields = result.get("fields", self._empty_fields())
-        return {
-            "metrics": metrics,
-            "model_id": model_id,
-            "result_type": self.result_type,
-            "data": {
-                "fields": fields,
-                "items": [],
-                "count": 0,
-            },
-        }
-
-
-class ConfiguredObjectHandler(BaseObjectHandler):
-    """Declarative handler for standard object-style documents."""
-
-    prompt: str = ""
-    examples: tuple[lx.data.ExampleData, ...] = ()
-    tracked_fields: tuple[str, ...] = ()
-    array_fields: tuple[str, ...] = ()
-    default_current_date_if_missing: bool = False
-    empty_error: str | None = None
+        return final_fields, has_meaningful_model_value
 
     def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
-        output = run_object_document_extraction(
-            ocr_draft,
-            model_id=model or None,
-            prompt=self.prompt,
-            examples=list(self.examples),
-            tracked_fields=self.tracked_fields,
-            array_fields=self.array_fields,
-            default_current_date_if_missing=self.default_current_date_if_missing,
-            empty_error=self.empty_error or f"No {self.label} fields extracted",
-            label=self.label,
-        )
-        return self._wrap_object_output(output)
+        t_start = time.perf_counter()
+        cleaned = clean_invoice_text(ocr_draft)
+        target = resolve_model_target(model)
+        provider = get_llm_provider(target.provider)
+        fallback_target = resolve_model_target(get_runtime_settings().llm_model_fallback)
+        fallback_provider = get_llm_provider(fallback_target.provider)
 
+        # Если в классе прописан свой prompt — используем его, иначе строим из схемы
+        if hasattr(self, 'prompt') and self.prompt:
+            sys_prompt = self.prompt
+        else:
+            fields_desc = ""
+            for f in self.schema.fields:
+                instr = getattr(self, 'desc_instruction', f.label) if f.name == "description" else f.label
+                fields_desc += f"- {f.name}: {instr}\n"
+            sys_prompt = SIMPLE_DOCUMENT_PROMPT.format(fields_description=fields_desc)
 
-class SimpleObjectHandler(ConfiguredObjectHandler):
-    """Shared handler for simple three-field object documents."""
+        attempts = [(target, provider, False)]
+        if fallback_target != target:
+            attempts.append((fallback_target, fallback_provider, True))
 
-    desc_instruction: str = (
-        "A concise description summarizing the document (1–2 sentences, **keep in Russian**)"
-    )
-    examples: tuple = ()
-    tracked_fields = TRACKED_SIMPLE_DOCUMENT_FIELDS
+        selected_target = None
+        selected_fields: dict[str, Any] | None = None
+        fallback_used = False
+        attempt_errors: list[str] = []
 
-    schema = DocumentSchema(
-        result_type="object",
-        fields=(
-            DocumentFieldSchema("document_number", "Document Number"),
-            DocumentFieldSchema("document_date", "Document Date"),
-            DocumentFieldSchema("description", "Description"),
-        ),
-        item_fields=(),
-    )
+        for attempt_target, attempt_provider, used_fallback in attempts:
+            try:
+                raw = attempt_provider.generate(
+                    sys_prompt,
+                    f"TEXT:\n{cleaned}",
+                    attempt_target.model_id,
+                )
+            except Exception as exc:
+                attempt_errors.append(f"{build_model_spec(attempt_target.provider, attempt_target.model_id)}: {exc}")
+                continue
 
-    @property
-    def prompt(self) -> str:
-        return SIMPLE_DOCUMENT_PROMPT.format(desc_instruction=self.desc_instruction)
+            extracted_data = extract_json_object(raw)
+            if not isinstance(extracted_data, dict):
+                extracted_data = {}
+            if raw.strip() and not extracted_data:
+                attempt_errors.append(
+                    f"{build_model_spec(attempt_target.provider, attempt_target.model_id)}: "
+                    f"{getattr(self, 'empty_error', f'Failed to parse structured response for {self.label}.')}"
+                )
+                continue
 
+            final_fields, has_meaningful_model_value = self._build_final_fields(extracted_data)
+            if has_meaningful_model_value:
+                selected_target = attempt_target
+                selected_fields = final_fields
+                fallback_used = used_fallback
+                break
 
-__all__ = [
-    "BaseObjectHandler",
-    "ConfiguredObjectHandler",
-    "SIMPLE_DOCUMENT_PROMPT",
-    "SimpleObjectHandler",
-    "TRACKED_SIMPLE_DOCUMENT_FIELDS",
-    "aggregate_object_fields",
-    "clean_object_text",
-    "compute_object_field_fill_rates",
-    "normalize_object_date",
-    "run_object_document_extraction",
-    "validate_object_fields",
-]
+            attempt_errors.append(
+                f"{build_model_spec(attempt_target.provider, attempt_target.model_id)}: "
+                f"{getattr(self, 'empty_error', f'No fields extracted for {self.label}.')}"
+            )
+
+        if selected_target is None or selected_fields is None:
+            logger.error(f"LLM fail for {self.document_code}: {'; '.join(attempt_errors)}")
+            return {
+                "status": "failed",
+                "document_code": self.document_code,
+                "duration": round(time.perf_counter() - t_start, 3),
+                "error": attempt_errors[-1] if attempt_errors else f"Failed to extract fields for {self.label}.",
+                "result_type": self.result_type,
+                "model_id": None,
+                "metrics": {
+                    "execution": {
+                        "primary_model": build_model_spec(target.provider, target.model_id),
+                        "fallback_model": (
+                            build_model_spec(fallback_target.provider, fallback_target.model_id)
+                            if fallback_target != target
+                            else None
+                        ),
+                        "final_model": None,
+                        "final_provider": None,
+                        "fallback_used": False,
+                    }
+                },
+                "data": {"fields": {}, "items": [], "count": 0},
+            }
+
+        model_spec = build_model_spec(selected_target.provider, selected_target.model_id)
+        return {
+            "status": "success",
+            "document_code": self.document_code,
+            "duration": round(time.perf_counter() - t_start, 3),
+            "result_type": self.result_type,
+            "model_id": model_spec,
+            "metrics": {
+                "execution": {
+                    "primary_model": build_model_spec(target.provider, target.model_id),
+                    "fallback_model": (
+                        build_model_spec(fallback_target.provider, fallback_target.model_id)
+                        if fallback_target != target
+                        else None
+                    ),
+                    "final_model": model_spec,
+                    "final_provider": selected_target.provider,
+                    "fallback_used": fallback_used,
+                }
+            },
+            "data": {"fields": selected_fields, "items": [], "count": 0},
+        }
+
+class ConfiguredObjectHandler(BaseObjectHandler):
+    desc_instruction: str = "concise summary in Russian"

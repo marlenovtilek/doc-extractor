@@ -36,9 +36,10 @@ Thumbs.db
 # ── Reports / scratch files ──────────────────────────────────────────────────
 REPORT*.md
 report*.md
-invoice_*.txt
-payload*.json
-response*.json
+# invoice_*.txt
+# payload*.json
+# response*.json
 
 # ── Claude Code internal ─────────────────────────────────────────────────────
 .claude/
+files_to_testing/

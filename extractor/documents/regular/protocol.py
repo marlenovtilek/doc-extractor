@@ -8,7 +8,9 @@ from datetime import datetime
 from typing import Any
 
 from ..base import DocumentFieldSchema, DocumentSchema, DocumentHandler
-from ...integrations.providers import resolve_model_target
+from ...integrations.llm import get_llm_provider
+from ...config.runtime import get_runtime_settings
+from ...integrations.providers import build_model_spec, resolve_model_target
 from ...observability.metrics import RunMetrics, timer
 
 PROTOCOL_PROMPT = """
@@ -634,6 +636,7 @@ class ProtocolHandler(DocumentHandler):
         t_wall_start = time.perf_counter()
         
         target_model = resolve_model_target(model)
+        fallback_target = resolve_model_target(get_runtime_settings().llm_model_fallback)
         
         with timer() as t_clean:
             ocr_normalized = _normalize_ocr_text(ocr_draft)
@@ -644,38 +647,34 @@ class ProtocolHandler(DocumentHandler):
             return {
                 "error": "Empty OCR text",
                 "metrics": metrics.to_dict(),
-                "model_id": target_model.model_id,
+                "model_id": build_model_spec(target_model.provider, target_model.model_id),
             }
 
-        # Вызов LLM
-        from ...integrations.providers import extract_with_langextract_optimized
+        final_target = target_model
+        fallback_used = False
         with timer() as t_llm:
-            # Используем Langextract (или любой другой клиент), передавая наш промпт в качестве контекста 
-            # Функция вызова зависит от того, как мы настроим providers.py на следующем шаге
             try:
-                # Временно используем напрямую OpenAI / Gemini через langextract:
-                import langextract as lx
-                from ...config.runtime import get_runtime_settings
-                from ...integrations.providers import _build_lx_config
-                
-                config = _build_lx_config(target_model)
-                buffer = get_runtime_settings().llm_max_char_buffer
-                
-                # Мы заставляем LLM извлечь ОДНУ сущность (весь JSON)
-                doc = lx.extract(
-                    text_or_documents=ocr_normalized,
-                    prompt_description=PROTOCOL_PROMPT,
-                    examples=[],
-                    config=config,
-                    max_char_buffer=buffer,
+                provider = get_llm_provider(target_model.provider)
+                llm_text = provider.generate(
+                    PROTOCOL_PROMPT,
+                    f"TEXT TO PROCESS:\n{ocr_normalized}",
+                    target_model.model_id,
                 )
-                
-                if doc.extractions:
-                    llm_text = doc.extractions[0].extraction_text
+            except Exception:
+                if fallback_target != target_model:
+                    try:
+                        fallback_provider = get_llm_provider(fallback_target.provider)
+                        llm_text = fallback_provider.generate(
+                            PROTOCOL_PROMPT,
+                            f"TEXT TO PROCESS:\n{ocr_normalized}",
+                            fallback_target.model_id,
+                        )
+                        final_target = fallback_target
+                        fallback_used = True
+                    except Exception:
+                        llm_text = "{}"
                 else:
                     llm_text = "{}"
-            except Exception as e:
-                llm_text = "{}"
         
         metrics.t_primary_llm_s = t_llm[0]
 
@@ -684,19 +683,35 @@ class ProtocolHandler(DocumentHandler):
             llm_payload = _extract_json_from_llm(llm_text)
             # Пропускаем через твой огромный скрипт нормализации (22222)
             normalized = normalize_protocol_payload(llm_payload, ocr_normalized)
+
+        items = normalized.get("ComplianceDocDetails", [])
         
         metrics.t_validate_s = t_validate[0]
-        metrics.primary_valid = True
+        metrics.primary_valid = bool(llm_payload)
+        metrics.items_extracted = len(items)
         metrics.t_total_s = round(time.perf_counter() - t_wall_start, 3)
 
+        metrics_payload = metrics.to_dict()
+        metrics_payload["execution"] = {
+            "primary_model": build_model_spec(target_model.provider, target_model.model_id),
+            "fallback_model": (
+                build_model_spec(fallback_target.provider, fallback_target.model_id)
+                if fallback_target != target_model
+                else None
+            ),
+            "final_model": build_model_spec(final_target.provider, final_target.model_id),
+            "final_provider": final_target.provider,
+            "fallback_used": fallback_used,
+        }
+
         return {
-            "metrics": metrics.to_dict(),
-            "model_id": target_model.model_id,
+            "metrics": metrics_payload,
+            "model_id": build_model_spec(final_target.provider, final_target.model_id),
             "result_type": "object",
             "data": {
                 "fields": {},
                 # Возвращаем весь результат одним объектом в списке
-                "items": normalized.get("ComplianceDocDetails",[]), 
-                "count": 1,
+                "items": items,
+                "count": len(items),
             },
         }

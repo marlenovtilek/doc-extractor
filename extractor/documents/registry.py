@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from .invoice.invoice import InvoiceHandler
 from .base import DocumentDefinition, DocumentHandler
-from .invoice import InvoiceHandler, TechnicalDocumentHandler
+from .regular.technical_document import TechnicalDocumentHandler
 from .regular.cmr import CMRHandler
 from .regular.contract import ContractHandler
 from .regular.declaration_conformity import DeclarationConformityHandler

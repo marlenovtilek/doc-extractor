@@ -3,7 +3,7 @@ from __future__ import annotations
 import langextract as lx
 
 from ..base import DocumentFieldSchema, DocumentSchema
-from ..object_core import ConfiguredObjectHandler, TRACKED_SIMPLE_DOCUMENT_FIELDS
+from ..object_core import ConfiguredObjectHandler
 
 CMR_EXTRACTION_PROMPT = """
 # ROLE
@@ -43,13 +43,11 @@ CMR_EXAMPLES = [
         ],
     ),
 ]
+
 class CMRHandler(ConfiguredObjectHandler):
     document_code = "00002"
     label = "CMR"
-    prompt = CMR_EXTRACTION_PROMPT
-    examples = tuple(CMR_EXAMPLES)
-    tracked_fields = TRACKED_SIMPLE_DOCUMENT_FIELDS
-    empty_error = "No CMR fields extracted"
+    desc_instruction = "Краткое описание CMR накладной на русском языке."
 
     schema = DocumentSchema(
         result_type="object",

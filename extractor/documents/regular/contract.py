@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import langextract as lx
-
 from ..base import DocumentFieldSchema, DocumentSchema
 from ..object_core import ConfiguredObjectHandler
 
@@ -80,21 +79,19 @@ CONTRACT_EXAMPLES = [
 ]
 
 
+
+
 class ContractHandler(ConfiguredObjectHandler):
     document_code = "03011"
     label = "Contract"
-    prompt = CONTRACT_EXTRACTION_PROMPT
-    examples = tuple(CONTRACT_EXAMPLES)
-    tracked_fields = TRACKED_CONTRACT_FIELDS
-    array_fields = ("parties",)
-    empty_error = "No contract fields extracted"
+    desc_instruction = "Concise summary (1-2 sentences) in Russian."
 
     schema = DocumentSchema(
         result_type="object",
         fields=(
             DocumentFieldSchema("document_number", "Document Number"),
             DocumentFieldSchema("document_date", "Document Date"),
-            DocumentFieldSchema("parties", "Parties", kind="array"),
+            DocumentFieldSchema("parties", "Parties"),
             DocumentFieldSchema("subject", "Subject"),
             DocumentFieldSchema("description", "Description"),
         ),
