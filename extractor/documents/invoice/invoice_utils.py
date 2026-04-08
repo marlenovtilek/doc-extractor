@@ -27,7 +27,8 @@ def extract_json_array(text: str) -> list:
     if match_arr:
         try:
             return json.loads(match_arr.group(0))
-        except: pass
+        except:
+            pass
 
     match_obj = re.search(r'\{.*\}', text, re.DOTALL)
     if match_obj:
@@ -36,7 +37,8 @@ def extract_json_array(text: str) -> list:
             if isinstance(data, dict) and "items" in data:
                 return data["items"]
             return [data]
-        except: pass
+        except:
+            pass
             
     return []
 
@@ -54,7 +56,6 @@ def validate_and_format_invoice(llm_response: str) -> Tuple[bool, str, List[dict
     try:
         parsed_data = extract_json_array(llm_response)
     except ValueError as e:
-        # Если не смогли спарсить, и ответ короткий — скорее всего модель просто сказала "нет данных"
         if len(llm_response) < 200:
             return True, "Text refusal (no items)", []
         return False, f"JSON Parse Error: {e}", []

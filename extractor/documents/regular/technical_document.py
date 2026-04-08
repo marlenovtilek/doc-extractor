@@ -145,34 +145,35 @@ class TechnicalDocumentHandler(DocumentHandler):
         final_target = target
         fallback_used = False
 
-        # РЕШАЕМ: Целиком или чанками
-        if provider.supports_large_context:
-            logger.info(f"🚀 TD Strategy: Single-Pass ({target.model_id})")
-            single_pass_result, extraction_ok = self._extract_once(
-                f"TEXT TO PROCESS:\n{cleaned}",
-                provider,
-                target,
-                fb_provider,
-                fb_target,
+        logger.info(f"📦 TD Strategy: Default-Chunking ({target.model_id})")
+        chunked_result, extraction_ok = self._run_chunked_workflow(
+            cleaned,
+            provider,
+            target,
+            runtime.chunk_size_default,
+            runtime.default_chunk_max_workers,
+        )
+        final_items = chunked_result["items"]
+        final_target = target
+        fallback_used = False
+
+        if not extraction_ok and fb_target != target:
+            logger.warning(
+                "Technical document primary chunked pass returned no items for %s; rerunning full request on fallback %s",
+                build_model_spec(target.provider, target.model_id),
+                build_model_spec(fb_target.provider, fb_target.model_id),
             )
-            final_items = single_pass_result["items"] if single_pass_result else []
-            if single_pass_result:
-                final_target = single_pass_result["final_target"]
-                fallback_used = single_pass_result["fallback_used"]
-        else:
-            logger.info(f"📦 TD Strategy: Chunking ({target.model_id})")
-            max_c = runtime.chunk_size_cerebras if target.provider == "cerebras" else runtime.chunk_size_default
             chunked_result, extraction_ok = self._run_chunked_workflow(
                 cleaned,
-                provider,
-                target,
                 fb_provider,
                 fb_target,
-                max_c,
+                runtime.chunk_size_default,
+                runtime.default_chunk_max_workers,
             )
             final_items = chunked_result["items"]
-            final_target = chunked_result["final_target"]
-            fallback_used = chunked_result["fallback_used"]
+            if extraction_ok:
+                final_target = fb_target
+                fallback_used = True
 
         if not extraction_ok:
             return {
@@ -236,27 +237,8 @@ class TechnicalDocumentHandler(DocumentHandler):
             }
         }
 
-    def _extract_once(self, text, provider, target, fb_provider, fb_target):
-        try:
-            raw = provider.generate(TD_SYSTEM_PROMPT, text, target.model_id)
-            is_valid, _, items = validate_technical_document_response(raw)
-            if is_valid:
-                return {"items": items, "final_target": target, "fallback_used": False}, True
-        except Exception:
-            pass
-
-        try:
-            raw = fb_provider.generate(TD_SYSTEM_PROMPT, text, fb_target.model_id)
-            is_valid, _, items = validate_technical_document_response(raw)
-            if is_valid:
-                return {"items": items, "final_target": fb_target, "fallback_used": True}, True
-        except Exception:
-            pass
-
-        return None, False
-
-    def _run_chunked_workflow(self, text, provider, target, fb_provider, fb_target, max_c):
-        # Чанкинг для Cerebras/Ollama
+    def _run_chunked_workflow(self, text, provider, target, max_c, max_workers):
+        # Единый default chunking для всех не-invoice товарных документов
         overlap = 600
         chunks = []
         start = 0
@@ -270,28 +252,21 @@ class TechnicalDocumentHandler(DocumentHandler):
 
         all_items = []
         any_chunk_succeeded = False
-        final_target = target
-        fallback_used = False
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(
                     self._process_single_chunk,
                     c,
                     provider,
                     target,
-                    fb_provider,
-                    fb_target,
                 )
                 for c in chunks
             ]
             for f in futures:
-                chunk_items, chunk_ok, chunk_target, chunk_fallback_used = f.result()
+                chunk_items, chunk_ok = f.result()
                 any_chunk_succeeded = any_chunk_succeeded or chunk_ok
                 all_items.extend(chunk_items)
-                if chunk_target is not None and chunk_fallback_used:
-                    final_target = chunk_target
-                    fallback_used = True
         
         # Дедупликация (по имени и модели)
         unique = []
@@ -303,26 +278,22 @@ class TechnicalDocumentHandler(DocumentHandler):
                 seen.add(slug)
         return {
             "items": unique,
-            "final_target": final_target,
-            "fallback_used": fallback_used,
         }, any_chunk_succeeded
 
-    def _process_single_chunk(self, chunk, provider, target, fb_provider, fb_target):
+    def _process_single_chunk(self, chunk, provider, target):
         try:
             raw = provider.generate(TD_SYSTEM_PROMPT, chunk, target.model_id)
             is_valid, _, items = validate_technical_document_response(raw)
             if is_valid:
-                return items, True, target, False
-        except Exception:
-            pass
-        try:
-            raw = fb_provider.generate(TD_SYSTEM_PROMPT, chunk, fb_target.model_id)
-            is_valid, _, items = validate_technical_document_response(raw)
-            if is_valid:
-                return items or [], True, fb_target, True
-        except Exception:
-            pass
-        return [], False, None, False
+                return items, True
+            return [], False
+        except Exception as exc:
+            logger.warning(
+                "Technical document chunk failed on %s: %s",
+                build_model_spec(target.provider, target.model_id),
+                exc,
+            )
+            return [], False
 
     def _normalize_date(self, val):
         if not val or str(val).upper() == "NO_DATE_FOUND":

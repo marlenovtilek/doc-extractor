@@ -41,62 +41,62 @@ def render_home_page():
             @keyframes spinner {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
         </style>
     </head>
-    <body class="bg-gray-50 font-sans">
+    <body class="bg-gray-50 font-sans text-[13px] text-gray-800">
         <div class="min-h-screen">
-            <nav class="bg-white shadow-sm border-b p-4">
+            <nav class="bg-white shadow-sm border-b px-4 py-3">
                 <div class="max-w-7xl mx-auto">
-                    <h1 class="text-2xl font-bold text-gray-800">🤖 Doc Extractor <span class="text-blue-600">Pro</span></h1>
+                    <h1 class="text-xl font-bold text-gray-800">🤖 Doc Extractor <span class="text-blue-600">Pro</span></h1>
                 </div>
             </nav>
 
-            <main class="max-w-7xl mx-auto px-4 py-8">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 space-y-6">
-                        <div class="bg-white p-4 rounded-xl shadow-sm border">
-                            <h2 class="text-base font-semibold mb-3 text-gray-700">⚙️ Настройки</h2>
+            <main class="max-w-7xl mx-auto px-4 py-5">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    <div class="lg:col-span-1 space-y-4">
+                        <div class="bg-white p-3 rounded-xl shadow-sm border">
+                            <h2 class="text-sm font-semibold mb-2.5 text-gray-700">⚙️ Настройки</h2>
                             
-                            <label class="block mb-1.5 text-sm font-medium">Тип документа</label>
-                            <select id="doc_code" class="w-full p-2 border rounded-lg mb-3"></select>
+                            <label class="block mb-1 text-xs font-medium">Тип документа</label>
+                            <select id="doc_code" class="w-full px-3 py-2 border rounded-lg mb-2.5 text-sm leading-tight"></select>
 
-                            <label class="block mb-1.5 text-sm font-medium">Провайдер</label>
-                            <select id="provider" class="w-full p-2 border rounded-lg mb-3" onchange="handleProviderChange()"></select>
+                            <label class="block mb-1 text-xs font-medium">Провайдер</label>
+                            <select id="provider" class="w-full px-3 py-2 border rounded-lg mb-2.5 text-sm leading-tight" onchange="handleProviderChange()"></select>
 
-                            <label class="block mb-1.5 text-sm font-medium">Модель</label>
-                            <select id="model_id" class="w-full p-2 border rounded-lg mb-3" onchange="handleModelChange()"></select>
+                            <label class="block mb-1 text-xs font-medium">Модель</label>
+                            <select id="model_id" class="w-full px-3 py-2 border rounded-lg mb-2.5 text-sm leading-tight" onchange="handleModelChange()"></select>
                             
-                            <label class="block mb-1.5 text-xs font-medium text-gray-400">Custom model string</label>
-                            <input type="text" id="custom_model" placeholder="provider::model_id" class="w-full p-2 border rounded-lg text-sm">
-                            <p class="mt-2 text-xs text-gray-400">Если поле заполнено, будет использована именно эта модель вместо выбора из списков.</p>
+                            <label class="block mb-1 text-[11px] font-medium text-gray-400">Custom model string</label>
+                            <input type="text" id="custom_model" placeholder="provider::model_id" class="w-full px-3 py-2 border rounded-lg text-sm leading-tight">
+                            <p class="mt-1.5 text-[11px] leading-snug text-gray-400">Если поле заполнено, будет использована именно эта модель вместо выбора из списков.</p>
                         </div>
 
-                        <div class="bg-white p-4 rounded-xl shadow-sm border">
-                            <textarea id="ocr_draft" rows="10" class="w-full p-2.5 bg-gray-50 border rounded-lg text-sm" placeholder="OCR текст..."></textarea>
-                            <button onclick="startExtraction()" id="btn_run" class="w-full mt-3 bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 text-sm">
+                        <div class="bg-white p-3 rounded-xl shadow-sm border">
+                            <textarea id="ocr_draft" rows="9" class="w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm leading-snug" placeholder="OCR текст..."></textarea>
+                            <button onclick="startExtraction()" id="btn_run" class="w-full mt-2.5 bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 text-sm">
                                 ЗАПУСТИТЬ
                             </button>
                         </div>
                     </div>
 
                     <div class="lg:col-span-2">
-                        <div id="result_area" class="bg-white p-4 rounded-xl shadow-sm border min-h-[420px]">
-                            <div id="placeholder" class="text-center py-28 text-gray-400 text-sm">Результаты появятся здесь</div>
-                            <div id="loading" class="hidden text-center py-28">
-                                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto mb-4"></div>
-                                <p>Обработка...</p>
+                        <div id="result_area" class="bg-white p-3 rounded-xl shadow-sm border min-h-[360px]">
+                            <div id="placeholder" class="text-center py-20 text-gray-400 text-sm">Результаты появятся здесь</div>
+                            <div id="loading" class="hidden text-center py-20">
+                                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10 mx-auto mb-3"></div>
+                                <p class="text-sm">Обработка...</p>
                             </div>
                             <div id="success_content" class="hidden">
-                                <div class="flex justify-between mb-2 text-sm">
+                                <div class="flex justify-between mb-1.5 text-sm">
                                     <span id="stat_count" class="font-bold"></span>
                                     <span id="stat_time" class="text-gray-500"></span>
                                 </div>
-                                <div class="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                                <div class="mb-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                                     <span id="stat_model"></span>
                                     <span id="stat_route"></span>
                                 </div>
-                                <div id="fields_panel" class="hidden mb-3">
-                                    <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Header</div>
+                                <div id="fields_panel" class="hidden mb-2.5">
+                                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Header</div>
                                     <div class="overflow-auto border rounded-lg">
-                                        <table class="min-w-full text-xs text-left border-collapse">
+                                        <table class="min-w-full text-[11px] text-left border-collapse">
                                             <thead class="bg-gray-100">
                                                 <tr id="fields_header_row"></tr>
                                             </thead>
@@ -106,14 +106,14 @@ def render_home_page():
                                         </table>
                                     </div>
                                 </div>
-                                <div id="json_panel" class="hidden mb-3">
-                                    <pre id="json_payload" class="overflow-auto max-h-[60vh] rounded-lg border bg-gray-50 p-3 text-xs text-gray-700"></pre>
+                                <div id="json_panel" class="hidden mb-2.5">
+                                    <pre id="json_payload" class="overflow-auto max-h-[60vh] rounded-lg border bg-gray-50 p-2.5 text-[11px] text-gray-700"></pre>
                                 </div>
                                 <div id="table_wrapper" class="hidden">
-                                    <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</div>
-                                    <div class="mb-2 text-xs text-gray-400">Таблица прокручивается по горизонтали, если колонок много.</div>
-                                    <div class="overflow-auto max-h-[70vh] border rounded-lg">
-                                        <table class="min-w-full w-max text-xs text-left border-collapse">
+                                    <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Items</div>
+                                    <div class="mb-1.5 text-[11px] text-gray-400">Таблица прокручивается по горизонтали, если колонок много.</div>
+                                    <div class="overflow-auto max-h-[72vh] border rounded-lg">
+                                        <table class="min-w-full w-max text-[11px] text-left border-collapse">
                                             <thead class="bg-gray-100 sticky top-0 z-10">
                                                 <tr id="table_header_row"></tr>
                                             </thead>
@@ -260,8 +260,8 @@ def render_home_page():
                 if (fieldEntries.length > 0) {{
                     fieldsPanel.classList.remove('hidden');
                     fieldEntries.forEach(([key, value]) => {{
-                        fieldsHeaderRow.innerHTML += `<th class="p-1.5 border border-gray-200 whitespace-nowrap font-semibold">${{escapeHtml(key)}}</th>`;
-                        fieldsValueRow.innerHTML += `<td class="p-1.5 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(value))}}</td>`;
+                        fieldsHeaderRow.innerHTML += `<th class="px-2 py-1 border border-gray-200 whitespace-nowrap font-semibold">${{escapeHtml(key)}}</th>`;
+                        fieldsValueRow.innerHTML += `<td class="px-2 py-1 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(value))}}</td>`;
                     }});
                 }}
 
@@ -289,13 +289,13 @@ def render_home_page():
                             keys.push(k);
                         }}
                     }});
-                    keys.forEach(k => thead.innerHTML += `<th class="p-1.5 border border-gray-200 whitespace-nowrap font-semibold">${{k}}</th>`);
+                    keys.forEach(k => thead.innerHTML += `<th class="px-2 py-1 border border-gray-200 whitespace-nowrap font-semibold">${{k}}</th>`);
                     items.forEach(item => {{
                         let row = "<tr>";
                         keys.forEach(k => {{
                             const value = item[k];
                             const display = value === null || value === undefined || value === "" ? "-" : value;
-                            row += `<td class="p-1.5 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(display))}}</td>`;
+                            row += `<td class="px-2 py-1 border border-gray-100 whitespace-nowrap align-top">${{escapeHtml(String(display))}}</td>`;
                         }});
                         tbody.innerHTML += row + "</tr>";
                     }});

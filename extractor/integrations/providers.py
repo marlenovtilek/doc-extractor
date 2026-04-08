@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 from ..config.runtime import get_runtime_settings
 
-_SUPPORTED_PROVIDERS = ("gemini", "openai", "ollama", "cerebras")
+_SUPPORTED_PROVIDERS = ("gemini", "openai", "vllm", "ollama", "cerebras")
 
 def _provider_display_name(provider: str) -> str:
     """Преобразует технический ID провайдера в красивое имя для UI."""
@@ -10,6 +10,7 @@ def _provider_display_name(provider: str) -> str:
         "cerebras": "Cerebras (Llama-3)",
         "gemini": "Google Gemini",
         "openai": "OpenAI (GPT)",
+        "vllm": "vLLM (Self-hosted)",
         "ollama": "Ollama (Local)",
     }
     return names.get(provider.lower(), provider.title())
@@ -31,6 +32,7 @@ def _provider_models(provider: str) -> tuple[str, ...]:
         "openai": rt.gpt_models,
         "ollama": rt.ollama_models,
         "cerebras": rt.cerebras_models,
+        "vllm": rt.vllm_models,
     }
     return mapping.get(provider, ())
 
@@ -124,6 +126,11 @@ def get_provider_statuses() -> dict[str, dict[str, Any]]:
             "configured": bool(rt.openai_api_key),
             "label": _provider_display_name("openai"),
             "detail": "" if rt.openai_api_key else "Set OPENAI_API_KEY to enable OpenAI requests.",
+        },
+        "vllm": {
+            "configured": bool(rt.vllm_base_url),
+            "label": _provider_display_name("vllm"),
+            "detail": "" if rt.vllm_base_url else "Set VLLM_BASE_URL to your self-hosted vLLM endpoint.",
         },
         "ollama": {
             "configured": bool(rt.ollama_base_url),

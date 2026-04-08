@@ -1,8 +1,8 @@
 import time
 import re
 import logging
-import json
 from typing import Any
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
 from extractor.documents.base import DocumentFieldSchema, DocumentHandler, DocumentSchema
@@ -53,24 +53,20 @@ class InvoiceHandler(DocumentHandler):
         fb_target = resolve_model_target(rt.llm_model_fallback)
         fb_provider = get_llm_provider(fb_target.provider)
 
-        # Решаем стратегию на основе провайдера
-        if provider.supports_large_context:
-            logger.info(f"🚀 Strategy: Single-Pass ({target.model_id})")
-            user_prompt = INVOICE_USER_TEMPLATE.format(ocr_text=cleaned)
-            final_items, final_target, fallback_used = self._extract_single_pass(
-                user_prompt,
-                provider,
-                target,
-                fb_provider,
-                fb_target,
-            )
-        else:
-            logger.info(f"📦 Strategy: Chunking ({target.model_id})")
-            # Передаем настройки чанка из Runtime
-            max_c = rt.chunk_size_cerebras if target.provider == "cerebras" else rt.chunk_size_default
-            final_items = self._run_chunked_workflow(cleaned, provider, target.model_id, max_c)
-            final_target = target
-            fallback_used = False
+        logger.info(f"📦 Invoice Strategy: Provider-Chunking ({target.model_id})")
+        max_c, max_workers = self._chunk_settings_for_provider(rt, target.provider)
+        chunked_result = self._run_chunked_workflow(
+            cleaned,
+            provider,
+            target,
+            fb_provider,
+            fb_target,
+            max_c,
+            max_workers,
+        )
+        final_items = chunked_result["items"]
+        final_target = target
+        fallback_used = False
 
         currency_db = load_currency_db()
         final_items = finalize_items(final_items, currency_db)
@@ -128,69 +124,107 @@ class InvoiceHandler(DocumentHandler):
             }
         }
 
-    def _extract_single_pass(self, user_prompt, provider, target, fb_provider, fb_target):
-        attempts = [(target, provider, False)]
-        if fb_target != target:
-            attempts.append((fb_target, fb_provider, True))
+    def _chunk_settings_for_provider(self, runtime, provider_name: str) -> tuple[int, int]:
+        size_by_provider = {
+            "gemini": runtime.invoice_chunk_size_gemini,
+            "openai": runtime.invoice_chunk_size_openai,
+            "ollama": runtime.invoice_chunk_size_ollama,
+            "cerebras": runtime.invoice_chunk_size_cerebras,
+            "vllm": runtime.invoice_chunk_size_vllm,
+        }
+        if provider_name == "cerebras":
+            return size_by_provider["cerebras"], 5
+        if provider_name == "vllm":
+            return size_by_provider["vllm"], runtime.invoice_vllm_max_workers
+        return size_by_provider.get(provider_name, runtime.chunk_size_default), 5
 
-        last_error: Exception | None = None
-        for attempt_target, attempt_provider, used_fallback in attempts:
-            try:
-                raw = attempt_provider.generate(
-                    INVOICE_SYSTEM_PROMPT,
-                    user_prompt,
-                    attempt_target.model_id,
+    def _run_chunked_workflow(self, text, provider, target, fb_provider, fb_target, max_c, max_workers):
+        runtime = get_runtime_settings()
+        overlap = self._chunk_overlap_for_provider(runtime, target.provider, max_c)
+        chunks = self._split_invoice_chunks(text, max_c, overlap)
+
+        all_raw = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            futures = [
+                ex.submit(
+                    self._process_single_chunk,
+                    c,
+                    provider,
+                    target,
+                    fb_provider,
+                    fb_target,
                 )
-            except Exception as exc:
-                last_error = exc
-                continue
+                for c in chunks
+            ]
+            for f in futures:
+                chunk_items = f.result()
+                all_raw.extend(chunk_items)
 
-            is_valid, _, items = validate_and_format_invoice(raw)
-            if is_valid and items:
-                return items, attempt_target, used_fallback
+        unique = self._dedupe_invoice_rows(all_raw)
+        return {"items": unique}
 
-        if last_error is not None:
-            raise last_error
-        raise ValueError("No invoice items extracted by either primary or fallback model.")
+    def _chunk_overlap_for_provider(self, runtime, provider_name: str, max_c: int) -> int:
+        if provider_name == "vllm":
+            raw_overlap = getattr(runtime, "invoice_chunk_overlap_vllm", 100)
+        else:
+            raw_overlap = getattr(runtime, "invoice_chunk_overlap_default", 600)
+        return max(0, min(raw_overlap, max(0, max_c - 1)))
 
-    def _run_chunked_workflow(self, text, provider, model_id, max_c):
-        overlap = 600
-        chunks = []
+    def _split_invoice_chunks(self, text: str, max_c: int, overlap: int = 600) -> list[str]:
+        chunks: list[str] = []
         start = 0
         while start < len(text):
             end = min(start + max_c, len(text))
             if end < len(text):
-                last_nl = text.rfind('\n', start, end)
-                if last_nl > start + (max_c // 2): end = last_nl
+                last_nl = text.rfind("\n", start, end)
+                if last_nl > start + (max_c // 2):
+                    end = last_nl
             chunks.append(text[start:end])
             start = end - overlap if end < len(text) else len(text)
+        return chunks
 
-        all_raw = []
-        # Fallback модель тоже берем из настроек
-        fb_target = resolve_model_target(get_runtime_settings().llm_model_fallback)
-        fb_provider = get_llm_provider(fb_target.provider)
+    def _dedupe_invoice_rows(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        unique: list[dict[str, Any]] = []
+        recent_fingerprints: deque[str] = deque(maxlen=25)
 
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            futures = [ex.submit(self._process_single_chunk, c, provider, model_id, fb_provider, fb_target.model_id) for c in chunks]
-            for f in futures: all_raw.extend(f.result())
+        for item in items:
+            fingerprint = self._invoice_item_fingerprint(item)
+            if fingerprint in recent_fingerprints:
+                continue
+            unique.append(item)
+            recent_fingerprints.append(fingerprint)
 
-        # Дедупликация нахлестов по цифрам (Кол-во + Цена)
-        unique = []
-        for it in all_raw:
-            fprint = f"{it.get('quantity')}_{it.get('price')}"
-            if not unique or f"{unique[-1].get('quantity')}_{unique[-1].get('price')}" != fprint:
-                unique.append(it)
         return unique
 
-    def _process_single_chunk(self, chunk, provider, m_id, fb_provider, fb_m_id):
+    def _invoice_item_fingerprint(self, item: dict[str, Any]) -> str:
+        def _norm(value: Any) -> str:
+            text = str(value or "").strip().lower()
+            text = re.sub(r"\s+", " ", text)
+            return text
+
+        return "|".join(
+            (
+                _norm(item.get("description")),
+                _norm(item.get("quantity")),
+                _norm(item.get("price")),
+                _norm(item.get("cost")),
+            )
+        )
+
+    def _process_single_chunk(self, chunk, provider, target, fb_provider, fb_target):
         user_prompt = INVOICE_USER_TEMPLATE.format(ocr_text=chunk)
         try:
-            raw = provider.generate(INVOICE_SYSTEM_PROMPT, user_prompt, m_id)
-            v, _, items = validate_and_format_invoice(raw)
-            if v and items: return items
-        except: pass
+            raw = provider.generate(INVOICE_SYSTEM_PROMPT, user_prompt, target.model_id)
+            v, reason, items = validate_and_format_invoice(raw)
+            if v and items:
+                return items
+        except Exception:
+            pass
+
         try:
-            raw = fb_provider.generate(INVOICE_SYSTEM_PROMPT, user_prompt, fb_m_id)
+            raw = fb_provider.generate(INVOICE_SYSTEM_PROMPT, user_prompt, fb_target.model_id)
             _, _, items = validate_and_format_invoice(raw)
             return items or []
-        except: return []
+        except Exception:
+            return []

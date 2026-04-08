@@ -5,6 +5,7 @@ from .gemini import GeminiProvider
 from .cerebras import CerebrasProvider
 from .openai import OpenAIProvider
 from .ollama import OllamaProvider
+from .vllm import VLLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,12 @@ def get_llm_provider(provider_name: str):
         "ollama": lambda: OllamaProvider(
             base_url=runtime.ollama_base_url,
             default_timeout_s=runtime.ollama_timeout_s,
+        ),
+        "vllm": lambda: VLLMProvider(
+            api_key=runtime.vllm_api_key,
+            base_url=runtime.vllm_base_url,
+            default_timeout_s=runtime.vllm_timeout_s,
+            supports_large_context=runtime.vllm_supports_large_context,
         ),
     }
     

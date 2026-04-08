@@ -1,6 +1,10 @@
 import unittest
+import json
 
-from extractor.integrations.providers import resolve_model_target
+from extractor.config.runtime import get_runtime_settings
+from extractor.integrations.providers import list_model_families, resolve_model_target
+from extractor.integrations.llm.vllm import VLLMProvider
+from unittest.mock import patch
 
 
 class ProviderRoutingTests(unittest.TestCase):
@@ -13,6 +17,56 @@ class ProviderRoutingTests(unittest.TestCase):
         target = resolve_model_target("llama3.1-8b")
         self.assertEqual(target.provider, "cerebras")
         self.assertEqual(target.model_id, "llama3.1-8b")
+
+    def test_explicit_vllm_model_spec_is_supported(self) -> None:
+        target = resolve_model_target("vllm::Qwen/Qwen2.5-14B-Instruct")
+        self.assertEqual(target.provider, "vllm")
+        self.assertEqual(target.model_id, "Qwen/Qwen2.5-14B-Instruct")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "VLLM_BASE_URL": "http://127.0.0.1:7401/v1",
+            "VLLM_MODELS": "Qwen/Qwen2.5-14B-Instruct|Qwen/Qwen2.5-7B-Instruct",
+        },
+        clear=False,
+    )
+    def test_vllm_family_appears_in_model_catalog(self) -> None:
+        get_runtime_settings.cache_clear()
+        try:
+            families = {family["provider"]: family for family in list_model_families()}
+        finally:
+            get_runtime_settings.cache_clear()
+
+        self.assertIn("vllm", families)
+        self.assertEqual(
+            [model["model_id"] for model in families["vllm"]["models"]],
+            [
+                "Qwen/Qwen2.5-14B-Instruct",
+                "Qwen/Qwen2.5-7B-Instruct",
+            ],
+        )
+
+    def test_vllm_provider_sets_json_mode(self) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_request(request, **kwargs):
+            captured["payload"] = json.loads(request.data.decode())
+            return {"choices": [{"message": {"content": '{"items":[]}'}}]}
+
+        provider = VLLMProvider(
+            api_key="token",
+            base_url="http://127.0.0.1:7401/v1",
+        )
+
+        with patch.object(VLLMProvider, "_request_json", side_effect=fake_request):
+            result = provider.generate("system", "user", "vllm::Qwen/Qwen2.5-14B-Instruct")
+
+        payload = captured["payload"]
+        self.assertEqual(result, '{"items":[]}')
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(payload["response_format"], {"type": "json_object"})
+        self.assertEqual(payload["temperature"], 0)
 
 
 if __name__ == "__main__":
