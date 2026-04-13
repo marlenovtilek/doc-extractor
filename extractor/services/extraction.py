@@ -14,6 +14,7 @@ def execute_extraction_request(
     document_code: str,
     ocr_draft: str,
     model: str | None = None,
+    source_file_path: str | None = None,
 ) -> dict:
     """Центральная точка входа для всех запросов на извлечение."""
     t_start = time.perf_counter()
@@ -42,7 +43,8 @@ def execute_extraction_request(
         # Теперь просто передаем строку модели, хэндлер сам её разрешит через providers.py
         output = handler.extract(
             ocr_draft=ocr_draft,
-            model=model
+            model=model,
+            source_file_path=source_file_path,
         )
     except Exception as exc:
         logger.error(f"Extraction error: {exc}")

@@ -6,6 +6,7 @@ from .cerebras import CerebrasProvider
 from .openai import OpenAIProvider
 from .ollama import OllamaProvider
 from .vllm import VLLMProvider
+from .vlm import VLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ def get_llm_provider(provider_name: str):
             base_url=runtime.vllm_base_url,
             default_timeout_s=runtime.vllm_timeout_s,
             supports_large_context=runtime.vllm_supports_large_context,
+        ),
+        "vlm": lambda: VLMProvider(
+            api_key=runtime.vlm_api_key,
+            base_url=runtime.vlm_base_url,
+            default_timeout_s=runtime.vlm_timeout_s,
         ),
     }
     

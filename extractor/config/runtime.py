@@ -61,6 +61,7 @@ class RuntimeSettings:
     openai_api_key: str
     cerebras_api_key: str
     vllm_api_key: str
+    vlm_api_key: str
     
     # Роутинг моделей
     llm_model_primary: str
@@ -72,17 +73,24 @@ class RuntimeSettings:
     ollama_models: tuple[str, ...]
     cerebras_models: tuple[str, ...]
     vllm_models: tuple[str, ...]
+    vlm_models: tuple[str, ...]
 
     # Параметры провайдеров
     cerebras_base_url: str
     ollama_base_url: str
     vllm_base_url: str
+    vlm_base_url: str
     gemini_timeout_s: int
     openai_timeout_s: int
     cerebras_timeout_s: int
     ollama_timeout_s: int
     vllm_timeout_s: int
+    vlm_timeout_s: int
     vllm_supports_large_context: bool
+    vlm_pdf_render_dpi: int
+    vlm_pages_per_prompt: int
+    vlm_max_pages: int
+    invoice_vlm_helper_model: str
     
     # Настройки чанкинга
     invoice_chunk_size_gemini: int
@@ -109,6 +117,7 @@ def get_runtime_settings() -> RuntimeSettings:
         openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         cerebras_api_key=os.getenv("CEREBRAS_API_KEY", ""),
         vllm_api_key=os.getenv("VLLM_API_KEY", ""),
+        vlm_api_key=os.getenv("VLM_API_KEY", ""),
         
         llm_model_primary=os.getenv("LLM_MODEL_PRIMARY", "gemini"),
         llm_model_fallback=os.getenv("LLM_MODEL_FALLBACK", "openai"),
@@ -142,16 +151,26 @@ def get_runtime_settings() -> RuntimeSettings:
             "VLLM_MODELS",
             (),
         ),
+        vlm_models=_env_model_list(
+            "VLM_MODELS",
+            (),
+        ),
 
         cerebras_base_url=os.getenv("CEREBRAS_BASE_URL", "https://api.cerebras.ai"),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         vllm_base_url=os.getenv("VLLM_BASE_URL", ""),
+        vlm_base_url=os.getenv("VLM_BASE_URL", ""),
         gemini_timeout_s=_env_int("GEMINI_TIMEOUT_S", 120),
         openai_timeout_s=_env_int("OPENAI_TIMEOUT_S", 90),
         cerebras_timeout_s=_env_int("CEREBRAS_TIMEOUT_S", 60),
         ollama_timeout_s=_env_int("OLLAMA_TIMEOUT_S", 300),
         vllm_timeout_s=_env_int("VLLM_TIMEOUT_S", 180),
+        vlm_timeout_s=_env_int("VLM_TIMEOUT_S", 180),
         vllm_supports_large_context=_env_bool("VLLM_SUPPORTS_LARGE_CONTEXT", False),
+        vlm_pdf_render_dpi=_env_int("VLM_PDF_RENDER_DPI", 144),
+        vlm_pages_per_prompt=_env_int("VLM_PAGES_PER_PROMPT", 1),
+        vlm_max_pages=_env_int("VLM_MAX_PAGES", 40),
+        invoice_vlm_helper_model=os.getenv("INVOICE_VLM_HELPER_MODEL", ""),
         
         invoice_chunk_size_gemini=_env_int_any(("INVOICE_CHUNK_SIZE_GEMINI",), 100000),
         invoice_chunk_size_openai=_env_int_any(("INVOICE_CHUNK_SIZE_OPENAI",), 80000),

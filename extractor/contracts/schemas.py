@@ -7,6 +7,7 @@ class ExtractionRequest(BaseModel):
     document_code: str = Field(..., examples=["04021"])
     ocr_draft: str
     model: str | None = None
+    source_file_path: str | None = None
 
 
 class ExtractionResponse(BaseModel):

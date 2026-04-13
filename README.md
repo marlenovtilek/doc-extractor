@@ -141,6 +141,7 @@ Provider catalogs come from `.env`:
 - `OLLAMA_MODELS`
 - `CEREBRAS_MODELS`
 - `VLLM_MODELS`
+- `VLM_MODELS`
 
 You can also pass:
 - a raw model id when the provider can be inferred, for example `gpt-4o-mini`, `gemini-2.5-flash`, `qwen2.5:7b`
@@ -153,6 +154,7 @@ Examples:
 - `openai::gpt-4o-mini`
 - `ollama::mistral:7b`
 - `vllm::Qwen/Qwen2.5-14B-Instruct`
+- `vlm::Qwen/Qwen2.5-VL-7B-Instruct`
 
 ## Local Run
 
@@ -189,6 +191,7 @@ Main variables:
 - `OLLAMA_MODELS`
 - `CEREBRAS_MODELS`
 - `VLLM_MODELS`
+- `VLM_MODELS`
 - `OPENAI_API_KEY`
 - `OLLAMA_BASE_URL`
 - `OLLAMA_TIMEOUT_S`
@@ -198,6 +201,12 @@ Main variables:
 - `VLLM_API_KEY`
 - `VLLM_TIMEOUT_S`
 - `VLLM_SUPPORTS_LARGE_CONTEXT`
+- `VLM_BASE_URL`
+- `VLM_API_KEY`
+- `VLM_TIMEOUT_S`
+- `VLM_PDF_RENDER_DPI`
+- `VLM_PAGES_PER_PROMPT`
+- `VLM_MAX_PAGES`
 - `INVOICE_CHUNK_SIZE_GEMINI`
 - `INVOICE_CHUNK_SIZE_OPENAI`
 - `INVOICE_CHUNK_SIZE_OLLAMA`

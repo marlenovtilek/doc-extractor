@@ -70,6 +70,9 @@ def render_home_page():
                         </div>
 
                         <div class="bg-white p-3 rounded-xl shadow-sm border">
+                            <label class="block mb-1 text-xs font-medium">Файл документа (для VLM)</label>
+                            <input type="file" id="source_file" accept=".pdf,image/*" class="w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm leading-tight mb-2.5">
+                            <p class="mb-2.5 text-[11px] leading-snug text-gray-400">Для `vlm::...` загрузи PDF или изображение. Для text-моделей можно оставить только OCR текст.</p>
                             <textarea id="ocr_draft" rows="9" class="w-full px-3 py-2 bg-gray-50 border rounded-lg text-sm leading-snug" placeholder="OCR текст..."></textarea>
                             <button onclick="startExtraction()" id="btn_run" class="w-full mt-2.5 bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 text-sm">
                                 ЗАПУСТИТЬ
@@ -92,6 +95,10 @@ def render_home_page():
                                 <div class="mb-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                                     <span id="stat_model"></span>
                                     <span id="stat_route"></span>
+                                </div>
+                                <div class="mb-2.5 space-y-1 text-[11px] text-gray-500">
+                                    <div id="stat_scan_helper" class="hidden rounded-md bg-gray-50 px-2 py-1"></div>
+                                    <div id="stat_vlm_helper" class="hidden rounded-md bg-gray-50 px-2 py-1"></div>
                                 </div>
                                 <div id="fields_panel" class="hidden mb-2.5">
                                     <div class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Header</div>
@@ -190,24 +197,29 @@ def render_home_page():
 
             async function startExtraction() {{
                 const ocr = document.getElementById('ocr_draft').value;
-                if (!ocr.trim()) return alert("Нет текста!");
-
                 const custom = document.getElementById('custom_model').value;
                 const finalModel = custom || document.getElementById('model_id').value;
+                const selectedFile = document.getElementById('source_file').files[0] || null;
+                const isVlm = finalModel.startsWith('vlm::') || document.getElementById('provider').value === 'vlm';
+                if (!ocr.trim() && !isVlm) return alert("Нет текста!");
+                if (isVlm && !selectedFile) return alert("Для VLM нужно выбрать PDF или изображение.");
 
                 document.getElementById('placeholder').classList.add('hidden');
                 document.getElementById('success_content').classList.add('hidden');
                 document.getElementById('loading').classList.remove('hidden');
 
                 try {{
-                    const response = await fetch('/web/extract/', {{
+                    const formData = new FormData();
+                    formData.append('document_code', document.getElementById('doc_code').value);
+                    formData.append('ocr_draft', ocr);
+                    formData.append('model', finalModel);
+                    if (selectedFile) {{
+                        formData.append('file', selectedFile);
+                    }}
+
+                    const response = await fetch('/web/extract/upload/', {{
                         method: 'POST',
-                        headers: {{'Content-Type': 'application/json'}},
-                        body: JSON.stringify({{
-                            document_code: document.getElementById('doc_code').value,
-                            ocr_draft: ocr,
-                            model: finalModel
-                        }})
+                        body: formData
                     }});
                     const res = await response.json();
                     if (response.ok && res.status === "success") showResults(res);
@@ -225,6 +237,22 @@ def render_home_page():
                 document.getElementById('stat_route').innerText = execution.fallback_used
                     ? `Маршрут: fallback -> ${{execution.final_model || '-' }}`
                     : (execution.final_model ? `Маршрут: primary -> ${{execution.final_model}}` : '');
+                renderHelperStat(
+                    'stat_scan_helper',
+                    'OCR scan-helper',
+                    execution.scan_helper_mode,
+                    execution.scan_helper_items_count,
+                    execution.scan_helper_updates,
+                    null
+                );
+                renderHelperStat(
+                    'stat_vlm_helper',
+                    'VLM helper',
+                    execution.vlm_helper_mode,
+                    execution.vlm_helper_items_count,
+                    execution.vlm_helper_updates,
+                    execution.vlm_helper_model
+                );
                 
                 const tbody = document.getElementById('table_body');
                 const thead = document.getElementById('table_header_row');
@@ -309,6 +337,31 @@ def render_home_page():
                     .replaceAll('>', '&gt;')
                     .replaceAll('"', '&quot;')
                     .replaceAll("'", '&#39;');
+            }}
+
+            function renderHelperStat(elementId, label, mode, itemsCount, updates, modelLabel) {{
+                const el = document.getElementById(elementId);
+                if (!el) return;
+
+                if (!mode) {{
+                    el.classList.add('hidden');
+                    el.textContent = '';
+                    return;
+                }}
+
+                const parts = [`${{label}}: ${{mode}}`];
+                if (modelLabel) {{
+                    parts.push(`модель=${{modelLabel}}`);
+                }}
+                if (itemsCount !== null && itemsCount !== undefined) {{
+                    parts.push(`items=${{itemsCount}}`);
+                }}
+                if (updates !== null && updates !== undefined) {{
+                    parts.push(`updates=${{updates}}`);
+                }}
+
+                el.textContent = parts.join(' | ');
+                el.classList.remove('hidden');
             }}
 
             window.onload = init;

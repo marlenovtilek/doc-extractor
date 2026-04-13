@@ -43,3 +43,4 @@ report*.md
 # ── Claude Code internal ─────────────────────────────────────────────────────
 .claude/
 files_to_testing/
+vlm_google.py

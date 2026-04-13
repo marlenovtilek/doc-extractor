@@ -1,6 +1,9 @@
+from pathlib import Path
+import shutil
 from typing import Any
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Response, Security
+from fastapi import FastAPI, File, Form, HTTPException, Response, Security, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -149,6 +152,7 @@ def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) ->
             document_code=payload.document_code,
             ocr_draft=payload.ocr_draft,
             model=payload.model,
+            source_file_path=payload.source_file_path,
         )
         
         if response.get("status") == "failed":
@@ -170,6 +174,16 @@ def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) ->
         import logging
         logging.error(f"Critical error during extraction: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error during extraction")
+
+
+def _store_uploaded_source_file(upload: UploadFile) -> Path:
+    suffix = Path(upload.filename or "").suffix
+    target_dir = Path("/tmp/doc-extractor-uploads")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_dir / f"{uuid4().hex}{suffix}"
+    with target_path.open("wb") as target_file:
+        shutil.copyfileobj(upload.file, target_file)
+    return target_path
 
 
 @app.get("/api/health/")
@@ -206,6 +220,43 @@ async def web_extract_document(payload: ExtractionRequest) -> dict[str, Any]:
     return _extract_payload(payload, public_api=False)
 
 
+@app.post("/web/extract/upload/", response_model=ExtractionResponse, include_in_schema=False)
+async def web_extract_document_upload(
+    document_code: str = Form(...),
+    ocr_draft: str = Form(""),
+    model: str | None = Form(None),
+    file: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    normalized_model = model.strip() if isinstance(model, str) else model
+    source_file_path: str | None = None
+    stored_path: Path | None = None
+
+    try:
+        target = resolve_model_target(normalized_model)
+
+        if target.provider == "vlm" and file is None:
+            raise HTTPException(status_code=400, detail="VLM extraction requires an uploaded PDF or image file.")
+        if target.provider != "vlm" and not str(ocr_draft or "").strip():
+            raise HTTPException(status_code=400, detail="OCR text is required for non-VLM models.")
+
+        if file is not None:
+            stored_path = _store_uploaded_source_file(file)
+            source_file_path = str(stored_path)
+
+        payload = ExtractionRequest(
+            document_code=document_code,
+            ocr_draft=ocr_draft,
+            model=normalized_model or None,
+            source_file_path=source_file_path,
+        )
+        return _extract_payload(payload, public_api=False)
+    finally:
+        if file is not None:
+            await file.close()
+        if stored_path is not None:
+            stored_path.unlink(missing_ok=True)
+
+
 # --- JOB MANAGEMENT (Оставляем без изменений, они используют общие сервисы) ---
 
 @app.post("/web/jobs/", include_in_schema=False)
@@ -215,6 +266,7 @@ async def web_create_job(payload: ExtractionRequest) -> dict[str, Any]:
             document_code=payload.document_code,
             ocr_draft=payload.ocr_draft,
             model=payload.model,
+            source_file_path=payload.source_file_path,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

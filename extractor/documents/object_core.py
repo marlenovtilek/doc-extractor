@@ -76,7 +76,13 @@ class BaseObjectHandler(DocumentHandler):
 
         return final_fields, has_meaningful_model_value
 
-    def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
+    def extract(
+        self,
+        *,
+        ocr_draft: str,
+        model: str | None = None,
+        source_file_path: str | None = None,
+    ) -> dict[str, Any]:
         t_start = time.perf_counter()
         cleaned = clean_invoice_text(ocr_draft)
         target = resolve_model_target(model)

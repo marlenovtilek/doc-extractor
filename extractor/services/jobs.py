@@ -146,7 +146,14 @@ def _report_job_progress(job_id: str, stage: str, detail: str = "") -> None:
     _update_job(job_id, progress=stage, progress_detail=detail)
 
 
-def _run_job(job_id: str, *, document_code: str, ocr_draft: str, model: str | None) -> None:
+def _run_job(
+    job_id: str,
+    *,
+    document_code: str,
+    ocr_draft: str,
+    model: str | None,
+    source_file_path: str | None = None,
+) -> None:
     if _is_cancel_requested(job_id):
         _mark_cancelled(job_id)
         return
@@ -166,6 +173,7 @@ def _run_job(job_id: str, *, document_code: str, ocr_draft: str, model: str | No
             document_code=document_code,
             ocr_draft=ocr_draft,
             model=model,
+            source_file_path=source_file_path,
         )
     except ExtractionCancelledError:
         _mark_cancelled(job_id)
@@ -213,6 +221,7 @@ def submit_web_extraction_job(
     document_code: str,
     ocr_draft: str,
     model: str | None = None,
+    source_file_path: str | None = None,
     background: bool = True,
 ) -> dict[str, Any]:
     job = ExtractionJob(
@@ -232,6 +241,7 @@ def submit_web_extraction_job(
             document_code=document_code,
             ocr_draft=ocr_draft,
             model=model,
+            source_file_path=source_file_path,
         )
     else:
         _run_job(
@@ -239,6 +249,7 @@ def submit_web_extraction_job(
             document_code=document_code,
             ocr_draft=ocr_draft,
             model=model,
+            source_file_path=source_file_path,
         )
 
     return job.to_dict()

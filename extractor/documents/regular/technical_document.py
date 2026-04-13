@@ -131,7 +131,13 @@ class TechnicalDocumentHandler(DocumentHandler):
         ),
     )
 
-    def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
+    def extract(
+        self,
+        *,
+        ocr_draft: str,
+        model: str | None = None,
+        source_file_path: str | None = None,
+    ) -> dict[str, Any]:
         runtime = get_runtime_settings()
         t_start = time.perf_counter()
         # Используем ту же очистку, что и в инвойсах

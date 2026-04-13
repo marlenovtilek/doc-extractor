@@ -71,5 +71,11 @@ class DocumentHandler(ABC):
         return self.schema.result_type
 
     @abstractmethod
-    def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
+    def extract(
+        self,
+        *,
+        ocr_draft: str,
+        model: str | None = None,
+        source_file_path: str | None = None,
+    ) -> dict[str, Any]:
         """Run extraction for a specific document type."""

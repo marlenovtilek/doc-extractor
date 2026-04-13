@@ -631,7 +631,13 @@ class ProtocolHandler(DocumentHandler):
         item_fields=(),
     )
 
-    def extract(self, *, ocr_draft: str, model: str | None = None) -> dict[str, Any]:
+    def extract(
+        self,
+        *,
+        ocr_draft: str,
+        model: str | None = None,
+        source_file_path: str | None = None,
+    ) -> dict[str, Any]:
         metrics = RunMetrics()
         t_wall_start = time.perf_counter()
         
