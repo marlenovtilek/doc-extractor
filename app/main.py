@@ -7,17 +7,17 @@ from fastapi import FastAPI, File, Form, HTTPException, Response, Security, Uplo
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from extractor.config.runtime import get_runtime_settings
-from extractor.contracts.schemas import ExtractionRequest, ExtractionResponse
-from extractor.documents.registry import list_document_definitions
-from extractor.integrations.providers import (
+from extractor.runtime import get_runtime_settings
+from extractor.schemas import ExtractionRequest, ExtractionResponse
+from extractor.registry import list_document_definitions
+from extractor.providers import (
     get_provider_statuses,
     list_model_families,
     resolve_model_target
 )
-from extractor.services.extraction import execute_extraction_request
-from extractor.services.health import get_health_status
-from extractor.services.jobs import (
+from extractor.extraction import execute_extraction_request
+from extractor.health import get_health_status
+from extractor.jobs import (
     cancel_web_extraction_job,
     get_web_extraction_job,
     submit_web_extraction_job,

@@ -36,11 +36,17 @@ Thumbs.db
 # ── Reports / scratch files ──────────────────────────────────────────────────
 REPORT*.md
 report*.md
+217.json
+test_script.py
+workflows/
+LOCAL_VLM_MIGRATION.md
 # invoice_*.txt
 # payload*.json
 # response*.json
 
-# ── Claude Code internal ─────────────────────────────────────────────────────
+# ── AI tooling internal ──────────────────────────────────────────────────────
 .claude/
+.codex
+.qwen/
 files_to_testing/
 vlm_google.py

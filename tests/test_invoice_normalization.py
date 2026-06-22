@@ -1,6 +1,6 @@
 import unittest
 
-from extractor.normalizers.currency import finalize_items, infer_currency_from_text
+from extractor.currency import finalize_items, infer_currency_from_text
 
 
 class InvoiceNormalizationTests(unittest.TestCase):

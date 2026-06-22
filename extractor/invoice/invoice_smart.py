@@ -5,12 +5,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from extractor.integrations.providers import ModelTarget
-from extractor.normalizers.currency import load_currency_db
+from extractor.providers import ModelTarget
+from extractor.currency import load_currency_db
 from .invoice_prompt import CHUNK_EXTRACTION_PROMPT
 from .invoice_validator import validate_invoice_json, extract_header_fields
 from .invoice_simple import _call_gemini, _call_cerebras, _call_ollama
-from extractor.config.runtime import get_runtime_settings
+from extractor.runtime import get_runtime_settings
 
 
 def clean_invoice_text(ocr_draft: str) -> str:

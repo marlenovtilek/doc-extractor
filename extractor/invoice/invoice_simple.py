@@ -13,8 +13,8 @@ import urllib.request
 from typing import Any
 
 from .invoice_prompt import INVOICE_SYSTEM_PROMPT
-from extractor.integrations.providers import ModelTarget, resolve_model_target
-from extractor.normalizers.currency import load_currency_db
+from extractor.providers import ModelTarget, resolve_model_target
+from extractor.currency import load_currency_db
 from .invoice_validator import validate_invoice_json, extract_header_fields
 
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ def extract_invoice_simple(
     
     # 4. Resolve model and call appropriate API
     try:
-        from extractor.config.runtime import get_runtime_settings
+        from extractor.runtime import get_runtime_settings
         runtime = get_runtime_settings()
         
         # Determine provider from model string

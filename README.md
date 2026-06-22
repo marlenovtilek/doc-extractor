@@ -16,18 +16,14 @@ Pipeline:
 5. Normalize, deduplicate, and finalize the extracted result
 6. Return a stateless payload for API clients or the built-in web UI
 
-Current document coverage is defined in [`extractor/documents/registry.py`](./extractor/documents/registry.py) and includes:
+This build is **invoice-only**. Document coverage is defined in [`extractor/documents/registry.py`](./extractor/documents/registry.py):
 - `04021` -> Invoice
-- `09022` -> Technical Document
-- `03011` -> Contract
-- `00012` -> Supply Contract
-- `11019` -> Power of Attorney
-- `00002` -> CMR
-- `9012` -> Passport
-- `22222` -> Protocol
-- certificate / declaration / veterinary / phytosanitary / fallback-style handlers such as `11111`, `11116`, `01207`, `01201`, `11014`, `09999`, `10999`, and `ELSE`
 
-The invoice flow is the most specialized pipeline in the service. It supports:
+> Focus phase: the service is intentionally scoped to invoices to reach high accuracy on the
+> hardest pipeline first. Other document types (technical description, contract, protocol, etc.)
+> live in git history and will be re-introduced after the invoice flow is finalized.
+
+The invoice flow is the core pipeline in the service. It supports:
 - OCR cleanup and table rehydration
 - parser-first extraction with selective line-level assist
 - deduplication / shadow-row pruning

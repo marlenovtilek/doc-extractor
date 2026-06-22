@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any
-from ..config.runtime import get_runtime_settings
+from extractor.runtime import get_runtime_settings
 
 _SUPPORTED_PROVIDERS = ("gemini", "openai", "vllm", "vlm", "ollama", "cerebras")
 

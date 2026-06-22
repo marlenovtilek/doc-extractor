@@ -1,6 +1,6 @@
 import unittest
 
-from extractor.documents.invoice.invoice_scan_layout import extract_scan_table_invoice
+from extractor.invoice.invoice_scan_layout import extract_scan_table_invoice
 
 
 class InvoiceScanLayoutTests(unittest.TestCase):

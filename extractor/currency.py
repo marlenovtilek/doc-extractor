@@ -6,7 +6,7 @@ Currency utilities — mirrors the resolve_currency logic from the original
 import json
 import re
 
-from ..config.runtime import get_runtime_settings
+from extractor.runtime import get_runtime_settings
 
 
 def load_currency_db() -> list[dict]:

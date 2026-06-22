@@ -1,11 +1,11 @@
 import logging
 import time
 
-from ..context.execution import (
+from extractor.execution import (
     ensure_not_cancelled,
     report_progress,
 )
-from ..documents.registry import get_document_definition
+from extractor.registry import get_document_definition
 
 logger = logging.getLogger(__name__)
 

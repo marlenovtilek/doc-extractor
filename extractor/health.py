@@ -1,5 +1,5 @@
-from ..config.runtime import get_runtime_settings
-from ..integrations.providers import get_provider_statuses, resolve_model_target
+from extractor.runtime import get_runtime_settings
+from extractor.providers import get_provider_statuses, resolve_model_target
 
 
 def get_health_status() -> dict:

@@ -1,6 +1,6 @@
 import logging
 
-from extractor.config.runtime import get_runtime_settings
+from extractor.runtime import get_runtime_settings
 from .gemini import GeminiProvider
 from .cerebras import CerebrasProvider
 from .openai import OpenAIProvider

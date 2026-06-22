@@ -5,12 +5,12 @@ from typing import Any
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 
-from extractor.documents.base import DocumentFieldSchema, DocumentHandler, DocumentSchema
-from extractor.integrations.llm import get_llm_provider
-from extractor.integrations.providers import build_model_spec, resolve_model_target
-from extractor.config.runtime import get_runtime_settings
-from extractor.normalizers.currency import finalize_items, infer_currency_from_text, load_currency_db
-from extractor.integrations.media.pdf_media import build_visual_inputs
+from extractor.base import DocumentFieldSchema, DocumentHandler, DocumentSchema
+from extractor.llm import get_llm_provider
+from extractor.providers import build_model_spec, resolve_model_target
+from extractor.runtime import get_runtime_settings
+from extractor.currency import finalize_items, infer_currency_from_text, load_currency_db
+from extractor.pdf_media import build_visual_inputs
 
 from .invoice_utils import clean_invoice_text, validate_and_format_invoice
 from .invoice_prompt import INVOICE_SYSTEM_PROMPT, INVOICE_USER_TEMPLATE

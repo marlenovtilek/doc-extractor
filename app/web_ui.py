@@ -1,8 +1,8 @@
 import json
 from fastapi.responses import HTMLResponse
-from extractor.config.runtime import get_runtime_settings
-from extractor.documents.registry import list_document_definitions
-from extractor.integrations.providers import list_model_families, build_model_spec, resolve_model_target
+from extractor.runtime import get_runtime_settings
+from extractor.registry import list_document_definitions
+from extractor.providers import list_model_families, build_model_spec, resolve_model_target
 
 def render_home_page():
     # Получаем данные

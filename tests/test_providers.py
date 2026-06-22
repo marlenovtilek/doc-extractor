@@ -1,10 +1,10 @@
 import unittest
 import json
 
-from extractor.config.runtime import get_runtime_settings
-from extractor.integrations.providers import list_model_families, resolve_model_target
-from extractor.integrations.llm.vllm import VLLMProvider
-from extractor.integrations.llm.vlm import VLMProvider
+from extractor.runtime import get_runtime_settings
+from extractor.providers import list_model_families, resolve_model_target
+from extractor.llm.vllm import VLLMProvider
+from extractor.llm.vlm import VLMProvider
 from unittest.mock import patch
 
 

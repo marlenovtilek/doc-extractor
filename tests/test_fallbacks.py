@@ -2,12 +2,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from extractor.documents.base import DocumentFieldSchema, DocumentSchema
-from extractor.documents.invoice.invoice import InvoiceHandler
-from extractor.documents.invoice.invoice_utils import validate_and_format_invoice
-from extractor.documents.object_core import BaseObjectHandler
-from extractor.documents.regular.technical_document import TechnicalDocumentHandler
-from extractor.integrations.providers import ModelTarget
+from extractor.invoice.invoice import InvoiceHandler
+from extractor.invoice.invoice_utils import validate_and_format_invoice
+from extractor.providers import ModelTarget
 
 
 class _FakeProvider:
@@ -27,41 +24,7 @@ class _FakeVLMProvider(_FakeProvider):
         return self.generate(*args, **kwargs)
 
 
-class _DummyObjectHandler(BaseObjectHandler):
-    document_code = "TEST"
-    label = "Dummy"
-    schema = DocumentSchema(
-        result_type="object",
-        fields=(DocumentFieldSchema("document_number", "Document Number"),),
-    )
-    empty_error = "No dummy fields extracted"
-
-
 class FallbackTests(unittest.TestCase):
-    def test_object_handler_uses_fallback_after_parse_failure(self) -> None:
-        primary_target = ModelTarget(provider="gemini", model_id="gemini-1")
-        fallback_target = ModelTarget(provider="openai", model_id="gpt-4o-mini")
-        providers = {
-            "gemini": _FakeProvider(["not a json payload"]),
-            "openai": _FakeProvider(['{"document_number": "DOC-42"}']),
-        }
-
-        with (
-            patch("extractor.documents.object_core.resolve_model_target", side_effect=[primary_target, fallback_target]),
-            patch("extractor.documents.object_core.get_runtime_settings", return_value=SimpleNamespace(llm_model_fallback="openai::gpt-4o-mini")),
-            patch("extractor.documents.object_core.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
-        ):
-            result = _DummyObjectHandler().extract(
-                ocr_draft="text",
-                model="gemini::gemini-1",
-                source_file_path="/tmp/source.pdf",
-            )
-
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(result["data"]["fields"]["document_number"], "DOC-42")
-        self.assertEqual(result["model_id"], "openai::gpt-4o-mini")
-        self.assertTrue(result["metrics"]["execution"]["fallback_used"])
-
     def test_invoice_chunking_uses_per_chunk_fallback_without_switching_final_model(self) -> None:
         primary_target = ModelTarget(provider="gemini", model_id="gemini-1")
         fallback_target = ModelTarget(provider="openai", model_id="gpt-4o-mini")
@@ -71,9 +34,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="openai::gpt-4o-mini",
                     invoice_chunk_size_gemini=100000,
@@ -87,7 +50,7 @@ class FallbackTests(unittest.TestCase):
                     chunk_size_default=100000,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
         ):
             result = InvoiceHandler().extract(ocr_draft="text", model="gemini::gemini-1")
 
@@ -106,9 +69,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="gemini::gemini-2.5-flash-lite",
                     invoice_chunk_size_gemini=100000,
@@ -122,7 +85,7 @@ class FallbackTests(unittest.TestCase):
                     chunk_size_default=100000,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_chunked_workflow",
@@ -148,9 +111,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="gemini::gemini-2.5-flash-lite",
                     invoice_chunk_size_gemini=100000,
@@ -167,7 +130,7 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
         ):
             result = InvoiceHandler().extract(ocr_draft="", model="vlm::Qwen/Qwen2.5-VL-7B-Instruct")
 
@@ -183,9 +146,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="gemini::gemini-2.5-flash-lite",
                     invoice_chunk_size_gemini=100000,
@@ -202,9 +165,9 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch(
-                "extractor.documents.invoice.invoice.build_visual_inputs",
+                "extractor.invoice.invoice.build_visual_inputs",
                 return_value=["data:image/png;base64,abc"],
             ) as build_visual_inputs,
         ):
@@ -230,9 +193,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="openai::gpt-4o-mini",
                     invoice_chunk_size_gemini=100000,
@@ -252,7 +215,7 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_chunked_workflow",
@@ -290,9 +253,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="openai::gpt-4o-mini",
                     invoice_chunk_size_gemini=100000,
@@ -312,7 +275,7 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_chunked_workflow",
@@ -349,9 +312,9 @@ class FallbackTests(unittest.TestCase):
         helper_items = [{"description": f"Helper {idx}", "quantity": 1, "hs_code": f"847149{idx:04d}"} for idx in range(30)]
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target, helper_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="openai::gpt-4o-mini",
                     invoice_chunk_size_gemini=100000,
@@ -371,7 +334,7 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_chunked_workflow",
@@ -404,9 +367,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="openai::gpt-4o-mini",
                     invoice_chunk_size_gemini=100000,
@@ -423,14 +386,14 @@ class FallbackTests(unittest.TestCase):
                     invoice_vlm_helper_model="",
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_chunked_workflow",
                 return_value={"items": []},
             ),
             patch(
-                "extractor.documents.invoice.invoice.extract_scan_table_invoice",
+                "extractor.invoice.invoice.extract_scan_table_invoice",
                 return_value={
                     "items": [
                         {"description": "Widget A", "quantity": 1, "hs_code": "8471490000"},
@@ -461,9 +424,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="gemini::gemini-2.5-flash-lite",
                     invoice_chunk_size_gemini=100000,
@@ -480,14 +443,14 @@ class FallbackTests(unittest.TestCase):
                     vlm_max_pages=12,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
             patch.object(
                 InvoiceHandler,
                 "_run_vlm_workflow",
                 return_value=[{"description": "Widget A", "quantity": 1}],
             ),
             patch(
-                "extractor.documents.invoice.invoice.extract_scan_table_invoice",
+                "extractor.invoice.invoice.extract_scan_table_invoice",
                 return_value={
                     "items": [
                         {"description": "Widget A", "quantity": 1},
@@ -512,39 +475,6 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(result["model_id"], "vlm::Qwen/Qwen3-VL-8B-Instruct")
         self.assertEqual(result["metrics"]["execution"]["scan_helper_mode"], "override")
 
-    def test_technical_document_always_uses_default_chunking(self) -> None:
-        primary_target = ModelTarget(provider="gemini", model_id="gemini-1")
-        fallback_target = ModelTarget(provider="openai", model_id="gpt-4o-mini")
-        providers = {
-            "gemini": _FakeProvider(['{"items": []}']),
-            "openai": _FakeProvider(['{"items": []}']),
-        }
-
-        with (
-            patch("extractor.documents.regular.technical_document.resolve_model_target", side_effect=[primary_target, fallback_target]),
-            patch(
-                "extractor.documents.regular.technical_document.get_runtime_settings",
-                return_value=SimpleNamespace(
-                    llm_model_fallback="openai::gpt-4o-mini",
-                    chunk_size_default=12345,
-                    default_chunk_max_workers=2,
-                ),
-            ),
-            patch("extractor.documents.regular.technical_document.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
-            patch.object(
-                TechnicalDocumentHandler,
-                "_run_chunked_workflow",
-                return_value=({"items": []}, True),
-            ) as run_chunked,
-        ):
-            result = TechnicalDocumentHandler().extract(ocr_draft="text", model="gemini::gemini-1")
-
-        run_chunked.assert_called_once()
-        _, _, _, max_c, max_workers = run_chunked.call_args.args
-        self.assertEqual(max_c, 12345)
-        self.assertEqual(max_workers, 2)
-        self.assertEqual(result["status"], "success")
-
     def test_invoice_chunking_keeps_primary_model_label_even_when_chunk_fallback_is_used(self) -> None:
         primary_target = ModelTarget(provider="vllm", model_id="Qwen/Qwen2.5-14B-Instruct")
         fallback_target = ModelTarget(provider="gemini", model_id="gemini-2.5-flash-lite")
@@ -554,9 +484,9 @@ class FallbackTests(unittest.TestCase):
         }
 
         with (
-            patch("extractor.documents.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
+            patch("extractor.invoice.invoice.resolve_model_target", side_effect=[primary_target, fallback_target]),
             patch(
-                "extractor.documents.invoice.invoice.get_runtime_settings",
+                "extractor.invoice.invoice.get_runtime_settings",
                 return_value=SimpleNamespace(
                     llm_model_fallback="gemini::gemini-2.5-flash-lite",
                     invoice_chunk_size_gemini=100000,
@@ -570,7 +500,7 @@ class FallbackTests(unittest.TestCase):
                     chunk_size_default=100000,
                 ),
             ),
-            patch("extractor.documents.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
+            patch("extractor.invoice.invoice.get_llm_provider", side_effect=lambda provider_name: providers[provider_name]),
         ):
             result = InvoiceHandler().extract(ocr_draft="text", model="vllm::Qwen/Qwen2.5-14B-Instruct")
 
