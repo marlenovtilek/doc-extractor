@@ -1,4 +1,4 @@
-"""Invoice extraction module — Dify-style, simple and effective."""
+"""Invoice extraction module."""
 
 from .invoice import InvoiceHandler
 
