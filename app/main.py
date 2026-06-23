@@ -6,6 +6,7 @@ from uuid import uuid4
 from fastapi import FastAPI, File, Form, HTTPException, Response, Security, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.concurrency import run_in_threadpool
 
 from extractor.runtime import get_runtime_settings
 from extractor.schemas import ExtractionRequest, ExtractionResponse
@@ -146,9 +147,12 @@ def _classify_error_status(error_detail: str) -> int:
     return 500
 
 
-def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) -> dict[str, Any]:
+async def _extract_payload(payload: ExtractionRequest, *, public_api: bool = False) -> dict[str, Any]:
     try:
-        response = execute_extraction_request(
+        # Offload the blocking extraction (LLM calls, chunk thread pool) so it does
+        # not freeze the event loop and stall other concurrent requests.
+        response = await run_in_threadpool(
+            execute_extraction_request,
             document_code=payload.document_code,
             ocr_draft=payload.ocr_draft,
             model=payload.model,
@@ -201,7 +205,7 @@ async def extract_document(
     payload: ExtractionRequest,
     _: None = Security(require_api_token),
 ) -> dict[str, Any]:
-    return _extract_payload(payload, public_api=True)
+    return await _extract_payload(payload, public_api=True)
 
 
 @app.get("/web/health/", include_in_schema=False)
@@ -217,7 +221,7 @@ async def web_meta() -> dict[str, Any]:
 @app.post("/web/extract/", response_model=ExtractionResponse, include_in_schema=False)
 async def web_extract_document(payload: ExtractionRequest) -> dict[str, Any]:
     # Web-версия получает полный ответ (без фильтрации полей)
-    return _extract_payload(payload, public_api=False)
+    return await _extract_payload(payload, public_api=False)
 
 
 @app.post("/web/extract/upload/", response_model=ExtractionResponse, include_in_schema=False)
@@ -249,7 +253,7 @@ async def web_extract_document_upload(
             model=normalized_model or None,
             source_file_path=source_file_path,
         )
-        return _extract_payload(payload, public_api=False)
+        return await _extract_payload(payload, public_api=False)
     finally:
         if file is not None:
             await file.close()

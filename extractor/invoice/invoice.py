@@ -474,7 +474,10 @@ class InvoiceHandler(DocumentHandler):
                 if last_nl > start + (max_c // 2):
                     end = last_nl
             chunks.append(text[start:end])
-            start = end - overlap if end < len(text) else len(text)
+            # Guarantee forward progress: newline-snapping can pull `end` close to
+            # `start`, and a large overlap could otherwise move `start` backward,
+            # causing an infinite loop. `max(start + 1, ...)` keeps it monotonic.
+            start = max(start + 1, end - overlap) if end < len(text) else len(text)
         return chunks
 
     def _dedupe_invoice_rows(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:

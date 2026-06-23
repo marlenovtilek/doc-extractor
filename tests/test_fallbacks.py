@@ -546,6 +546,17 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(chunks[0], text[:1000])
         self.assertEqual(chunks[1], text[400:1400])
 
+    def test_invoice_chunk_split_terminates_with_oversized_overlap(self) -> None:
+        # Newline-snapping can pull `end` close to `start`; an overlap larger than
+        # the realized step must not move `start` backward into an infinite loop.
+        handler = InvoiceHandler()
+        text = ("A" * 600) + "\n" + ("B" * 1200)
+
+        chunks = handler._split_invoice_chunks(text, 1000, overlap=900)
+
+        self.assertGreater(len(chunks), 1)
+        self.assertLess(len(chunks), len(text))  # terminates, no runaway
+
     def test_invoice_vllm_overlap_is_reduced(self) -> None:
         handler = InvoiceHandler()
         runtime = SimpleNamespace(invoice_chunk_overlap_default=600, invoice_chunk_overlap_vllm=100)
