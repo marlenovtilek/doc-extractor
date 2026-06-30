@@ -1,12 +1,10 @@
 fastapi>=0.115
-langextract>=1.0.0
+uvicorn>=0.34
 python-dotenv>=1.0
-google-genai>=1.0.0
-openai>=1.0.0
 pydantic>=2.0.0
 python-multipart>=0.0.9
-cerebras-cloud-sdk>=1.0.0
-uvicorn>=0.34
-streamlit
+
+# VLM (vision) path only — PDF/image rendering for vlm:: models.
+# Remove these two if you never use the image-based extraction path.
 pypdfium2>=4.30.0
 Pillow>=10.0.0

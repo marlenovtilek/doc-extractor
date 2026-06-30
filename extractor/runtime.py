@@ -90,6 +90,7 @@ class RuntimeSettings:
     vlm_pdf_render_dpi: int
     vlm_pages_per_prompt: int
     vlm_max_pages: int
+    vlm_passes: int
     invoice_vlm_helper_model: str
     
     # Настройки чанкинга
@@ -170,6 +171,7 @@ def get_runtime_settings() -> RuntimeSettings:
         vlm_pdf_render_dpi=_env_int("VLM_PDF_RENDER_DPI", 144),
         vlm_pages_per_prompt=_env_int("VLM_PAGES_PER_PROMPT", 1),
         vlm_max_pages=_env_int("VLM_MAX_PAGES", 40),
+        vlm_passes=_env_int("INVOICE_VLM_PASSES", 2),
         invoice_vlm_helper_model=os.getenv("INVOICE_VLM_HELPER_MODEL", ""),
         
         invoice_chunk_size_gemini=_env_int_any(("INVOICE_CHUNK_SIZE_GEMINI",), 100000),

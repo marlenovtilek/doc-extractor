@@ -50,3 +50,7 @@ LOCAL_VLM_MIGRATION.md
 .qwen/
 files_to_testing/
 vlm_google.py
+217.txt
+217.pdf
+
+test_invoices/
